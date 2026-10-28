@@ -522,6 +522,11 @@ class SessionService : Service() {
             guest.add("BL_VENC_SOCKET=" + encoder.socket.absolutePath)
         }
 
+        val mapBridge = MapBridge()
+        mapBridge.attach(this)
+        components.add(mapBridge)
+        guest.add("BL_MAP_BRIDGE=127.0.0.1:" + MapBridge.PORT)
+
         guest.add("BL_WIDTH=" + size.first)
         guest.add("BL_HEIGHT=" + size.second)
         if (SessionState.followScreen || size.first < size.second ||

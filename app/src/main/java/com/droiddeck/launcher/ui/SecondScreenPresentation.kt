@@ -6,6 +6,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
 import android.os.Bundle
 import android.util.Log
 import android.view.Display
@@ -28,6 +30,7 @@ import com.droiddeck.launcher.input.PointerGestures
 import com.droiddeck.launcher.input.SecondScreenMode
 import com.droiddeck.launcher.input.TouchpadGestures
 import com.droiddeck.launcher.SessionActivity
+import com.droiddeck.launcher.session.MapFeed
 import com.droiddeck.launcher.session.SessionService
 import com.droiddeck.launcher.session.SessionState
 import com.droiddeck.launcher.session.SessionTerminal
@@ -65,7 +68,10 @@ class SecondScreenPresentation(
     init {
         setCancelable(false)
         setCanceledOnTouchOutside(false)
-        setOnDismissListener { closeTerminal() }
+        setOnDismissListener {
+            closeTerminal()
+            MapFeed.onChange = null
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -110,6 +116,7 @@ class SecondScreenPresentation(
         keyboardHost?.hide()
         keyboardHost = null
         closeTerminal()
+        MapFeed.onChange = null
         root.removeAllViews()
         val mode = if (currentMode == SecondScreenMode.DECK_CONTROLS && !SessionState.deckPad) SecondScreenMode.NONE
         else currentMode
@@ -118,6 +125,7 @@ class SecondScreenPresentation(
         when (mode) {
             SecondScreenMode.KEYBOARD_TRACKPAD -> renderKeyboardAndTrackpad()
             SecondScreenMode.TERMINAL -> renderTerminal()
+            SecondScreenMode.GAME_MAP -> renderGameMap()
             SecondScreenMode.DECK_CONTROLS -> root.addView(DeckControlsPanel(context, onClose, onSteamMenu, onQam, pad), weightParams())
             SecondScreenMode.NONE -> Unit
         }
@@ -261,6 +269,38 @@ class SecondScreenPresentation(
         }
     }
 
+    private fun renderGameMap() {
+        val view = MapView(context)
+        val bar = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            setBackgroundColor(Color.rgb(27, 32, 38))
+        }
+        bar.addView(Button(context).apply {
+            text = "×"
+            contentDescription = context.getString(R.string.deck_close)
+            minWidth = dp(48)
+            setOnClickListener { onClose() }
+        })
+        bar.addView(TextView(context).apply {
+            text = context.getString(R.string.second_mode_game_map)
+            textSize = 14f
+            setTextColor(Color.WHITE)
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        bar.addView(Button(context).apply {
+            text = context.getString(R.string.second_map_area)
+            setOnClickListener { MapFeed.sendCommand("view:area") }
+        })
+        bar.addView(Button(context).apply {
+            text = context.getString(R.string.second_map_world)
+            setOnClickListener { MapFeed.sendCommand("view:world") }
+        })
+        root.addView(view, LinearLayout.LayoutParams(-1, 0, 1f))
+        root.addView(bar, LinearLayout.LayoutParams(-1, -2))
+        MapFeed.onChange = { view.postInvalidate() }
+    }
+
     private fun showTerminalKeyboard() {
         terminalView?.let { view ->
             view.requestFocus()
@@ -334,6 +374,59 @@ class SecondScreenPresentation(
         }
 
         override fun onTouchEvent(event: MotionEvent): Boolean = gestures.onTouch(event)
+    }
+
+    private inner class MapView(context: Context) : View(context) {
+        private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG)
+        private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = dp(14).toFloat()
+        }
+        private val gridPaint = Paint().apply {
+            color = Color.rgb(40, 48, 58)
+            strokeWidth = 1f
+        }
+        private val dest = RectF()
+
+        override fun onDraw(canvas: Canvas) {
+            canvas.drawColor(Color.BLACK)
+            val bitmap = MapFeed.bitmap
+            if (bitmap == null) {
+                drawWaiting(canvas)
+                return
+            }
+            val scale = minOf(width.toFloat() / bitmap.width, height.toFloat() / bitmap.height)
+            val w = bitmap.width * scale
+            val h = bitmap.height * scale
+            dest.set((width - w) / 2f, (height - h) / 2f, (width + w) / 2f, (height + h) / 2f)
+            canvas.drawBitmap(bitmap, null, dest, bitmapPaint)
+            val title = MapFeed.title
+            if (title.isNotEmpty()) canvas.drawText(title, dp(8).toFloat(), dp(20).toFloat(), textPaint)
+        }
+
+        private fun drawWaiting(canvas: Canvas) {
+            val step = dp(48).toFloat()
+            var x = 0f
+            while (x <= width) {
+                canvas.drawLine(x, 0f, x, height.toFloat(), gridPaint)
+                x += step
+            }
+            var y = 0f
+            while (y <= height) {
+                canvas.drawLine(0f, y, width.toFloat(), y, gridPaint)
+                y += step
+            }
+            val lines = listOf(
+                context.getString(R.string.second_mode_game_map),
+                context.getString(R.string.second_map_waiting),
+                "$width×$height",
+            )
+            var baseline = height / 2f - dp(20)
+            for (line in lines) {
+                canvas.drawText(line, (width - textPaint.measureText(line)) / 2f, baseline, textPaint)
+                baseline += dp(24)
+            }
+        }
     }
 
     private inner class TerminalClient : TerminalSessionClient, TerminalViewClient {
