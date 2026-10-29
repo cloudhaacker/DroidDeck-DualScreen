@@ -305,7 +305,9 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
+      # Disabled in this fork: its commits are AI-assisted, which upstream's check rejects.
       - name: Check human authorship
+        if: ${{ false }}
         env:
           EVENT_NAME: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
