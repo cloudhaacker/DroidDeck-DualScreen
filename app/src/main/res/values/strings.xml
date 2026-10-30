@@ -1799,10 +1799,10 @@
     <string name="second_mode_keyboard_trackpad">Keyboard + trackpad</string>
     <string name="second_mode_terminal">Terminal</string>
     <string name="second_mode_deck_controls">Deck grips + trackpads</string>
-    <string name="second_mode_game_map">Game map</string>
+    <string name="second_mode_game_map">Dual screen</string>
     <string name="second_map_area">Area</string>
     <string name="second_map_world">World</string>
-    <string name="second_map_waiting">Waiting for the game on 127.0.0.1:47200</string>
+    <string name="second_map_waiting">Waiting for a game on 127.0.0.1:47200</string>
 
     <string name="rtinst_removing">Removing Linux runtime</string>
     <plurals name="rtinst_removing_entries">
