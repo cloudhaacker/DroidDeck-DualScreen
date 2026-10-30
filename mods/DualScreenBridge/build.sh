@@ -12,4 +12,4 @@ mcs -target:library -nostdlib -noconfig -nowarn:1701,1702 -out:"$out/DualScreenB
   -r:"$managed/UnityEngine.dll" -r:"$managed/UnityEngine.CoreModule.dll" \
   -r:"$managed/UnityEngine.ImageConversionModule.dll" -r:"$managed/UnityEngine.ScreenCaptureModule.dll" \
   -r:"$melon/MelonLoader.dll" -r:"$melon/0Harmony.dll" \
-  "$here/DualScreenBridge.cs"
+  "$here"/*.cs
