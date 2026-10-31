@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.5.0", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.0", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -52,6 +52,26 @@ namespace DualScreenBridge
                 Hook(harmony, guiMap, "StartMap", "SkipOwn", "AfterMapStart");
                 Hook(harmony, guiMap, "EndMap", "SkipOwn", "AfterMapEnd");
                 Hook(harmony, world, "OnInit", null, "AfterWorldInit");
+                // The copy must not switch off the field camera or take over the game's controller input.
+                Hook(harmony, guiMap, "FieldOff", "SkipOwn", null);
+                Hook(harmony, guiMap, "FieldOn", "SkipOwn", null);
+                Hook(harmony, guiMap, "ProcessRetCmd", "EnterOwn", "LeaveOwn");
+                Type camera = GameApi.Find("UICamera");
+                if (camera != null)
+                {
+                    Hook(harmony, camera, "PushInterface", "SkipOwnArg", null);
+                    Hook(harmony, camera, "PopInterface", "SkipOwnArg", null);
+                    Hook(harmony, camera, "LockInput", "SkipInOwnCall", null);
+                    Hook(harmony, camera, "UnlockInput", "SkipInOwnCall", null);
+                }
+                // The game's own mod toolkit takes over every map window and draws a full-screen map on the main screen.
+                Type mapUi = GameApi.Find("DQ8MR.Mods.Toolkit.MapUi");
+                if (mapUi != null)
+                {
+                    Hook(harmony, mapUi, "Attach", "SkipOwnArg", null);
+                    Hook(harmony, mapUi, "Release", "SkipOwnArg", null);
+                }
+                else MelonLogger.Msg("the game's MapUi toolkit was not found");
             }
             catch (Exception e)
             {
@@ -63,11 +83,20 @@ namespace DualScreenBridge
         {
             HarmonyMethod pre = prefix == null ? null : new HarmonyMethod(typeof(BridgeMod).GetMethod(prefix, Statics));
             HarmonyMethod post = postfix == null ? null : new HarmonyMethod(typeof(BridgeMod).GetMethod(postfix, Statics));
-            foreach (MethodInfo m in target.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+            foreach (MethodInfo m in target.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
                 if (m.Name != method) continue;
-                harmony.Patch(m, pre, post);
-                MelonLogger.Msg("hooked " + target.Name + "." + method);
+                // Hooks that read the first argument cannot patch a method without one.
+                if (prefix == "SkipOwnArg" && m.GetParameters().Length == 0) continue;
+                try
+                {
+                    harmony.Patch(m, pre, post);
+                    MelonLogger.Msg("hooked " + target.Name + "." + method);
+                }
+                catch (Exception e)
+                {
+                    MelonLogger.Warning("could not hook " + target.Name + "." + method + ": " + e.Message);
+                }
             }
         }
 
@@ -75,6 +104,30 @@ namespace DualScreenBridge
         private static bool SkipOwn(object __instance)
         {
             return !Map.Owns(__instance);
+        }
+
+        // True only while the copy's own command handler runs, so its input locks are ignored.
+        internal static bool InOwnCall;
+
+        private static bool SkipOwnArg(object __0)
+        {
+            return !Map.Owns(__0);
+        }
+
+        private static bool EnterOwn(object __instance)
+        {
+            InOwnCall = Map.Owns(__instance);
+            return true;
+        }
+
+        private static void LeaveOwn()
+        {
+            InOwnCall = false;
+        }
+
+        private static bool SkipInOwnCall()
+        {
+            return !InOwnCall;
         }
 
         // The real map and the copy share static state, so the copy steps aside while the real one is up.
@@ -122,6 +175,7 @@ namespace DualScreenBridge
 
         private void Update()
         {
+            BridgeMod.InOwnCall = false;
             BridgeClient client = BridgeMod.Client;
             if (client == null) return;
             string command;
