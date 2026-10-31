@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.3.0", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.4.0", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -19,6 +19,10 @@ namespace DualScreenBridge
         // -1 follows the game's own default, 0 world map, 1 area map.
         internal static int DesiredView = -1;
         internal static string Status = "starting";
+        // The copy only starts after the first Area or World tap, and gives up if the game keeps closing it.
+        internal static bool Armed;
+        internal static int QuickDeaths;
+        internal static float RetryAt;
 
         public override void OnLateInitializeMelon()
         {
@@ -124,10 +128,15 @@ namespace DualScreenBridge
             while (client.TryTakeCommand(out command))
             {
                 MelonLogger.Msg("command: " + command);
-                if (command == "view:area") { BridgeMod.DesiredView = 1; nextPoll = 0f; }
-                else if (command == "view:world") { BridgeMod.DesiredView = 0; nextPoll = 0f; }
+                if (command == "view:area" || command == "view:world")
+                {
+                    BridgeMod.DesiredView = command == "view:area" ? 1 : 0;
+                    BridgeMod.Armed = true;
+                    BridgeMod.QuickDeaths = 0;
+                    BridgeMod.RetryAt = 0f;
+                    nextPoll = 0f;
+                }
             }
-            BridgeMod.Map.Tick();
             if (Time.realtimeSinceStartup >= nextPoll)
             {
                 nextPoll = Time.realtimeSinceStartup + 1f;
@@ -152,12 +161,39 @@ namespace DualScreenBridge
             }
         }
 
+        private void LateUpdate()
+        {
+            BridgeMod.Map.Tick();
+        }
+
         private static void Poll(BridgeClient client)
         {
             HeadlessMap map = BridgeMod.Map;
             if (!client.Connected) return;
             if (BridgeMod.RealMapOpen) { BridgeMod.Status = "in-game map is open"; return; }
             if (Time.realtimeSinceStartup < BridgeMod.ResumeAt) return;
+            if (!BridgeMod.Armed)
+            {
+                map.Destroy();
+                if (BridgeMod.QuickDeaths < 4) BridgeMod.Status = "tap Area or World to start";
+                return;
+            }
+            if (Time.realtimeSinceStartup < BridgeMod.RetryAt) return;
+            if (map.Active && !map.Alive)
+            {
+                float life = map.Age;
+                map.Destroy();
+                BridgeMod.QuickDeaths = life < 6f ? BridgeMod.QuickDeaths + 1 : 0;
+                MelonLogger.Msg(string.Format("the game closed the map copy after {0:0.0}s (quick closes: {1})", life, BridgeMod.QuickDeaths));
+                if (BridgeMod.QuickDeaths >= 4)
+                {
+                    BridgeMod.Armed = false;
+                    BridgeMod.Status = "map copy keeps closing, tap Area or World to retry";
+                    return;
+                }
+                BridgeMod.RetryAt = Time.realtimeSinceStartup + 3f * BridgeMod.QuickDeaths + 1f;
+                return;
+            }
             if (!GameApi.HasPlayer())
             {
                 map.Destroy();

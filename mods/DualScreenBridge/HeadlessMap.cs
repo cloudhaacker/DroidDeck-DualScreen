@@ -19,8 +19,12 @@ namespace DualScreenBridge
         private int layer = -1;
         private bool loadRequested;
         private bool camerasLogged;
+        private float createdAt;
+        private int fixLogged;
 
         public string Key = "";
+
+        public float Age { get { return Time.realtimeSinceStartup - createdAt; } }
 
         public bool Active { get { return root != null; } }
 
@@ -71,8 +75,8 @@ namespace DualScreenBridge
             float useH = Convert.ToSingle(GameApi.Invoke(null, cameraControl, "GetUseHeight"));
             if (useW < 16f || useH < 16f) { useW = main.pixelWidth; useH = main.pixelHeight; }
             float aspect = useW / useH;
-            int width = 960;
-            int height = Mathf.Clamp(Mathf.RoundToInt(width / aspect), 200, 1080);
+            int width = 720;
+            int height = Mathf.Clamp(Mathf.RoundToInt(width / aspect), 200, 1280);
             target = new RenderTexture(width, height, 16, RenderTextureFormat.ARGB32);
 
             root = new GameObject("DualScreenMapRoot");
@@ -109,6 +113,8 @@ namespace DualScreenBridge
             foreach (Transform t in instance.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
 
             Key = key;
+            createdAt = Time.realtimeSinceStartup;
+            fixLogged = 0;
             diagnoseAt = Time.realtimeSinceStartup + 2f;
             MelonLogger.Msg(string.Format("map copy created: key={0} mode={1} layer={2} target={3}x{4} ui={5}x{6}", key, mode, layer, width, height, useW, useH));
             return null;
@@ -117,6 +123,7 @@ namespace DualScreenBridge
         public void Tick()
         {
             if (root == null) return;
+            if (instance != null) Relayer();
             if (Time.realtimeSinceStartup >= isolateAt)
             {
                 isolateAt = Time.realtimeSinceStartup + 1f;
@@ -133,6 +140,16 @@ namespace DualScreenBridge
                 Component w = world != null ? root.GetComponentInChildren(world, true) : null;
                 string state = w != null ? GameApi.GetField(w, world, "isLocalMap") + " / " + GameApi.GetField(w, world, "currentStatus") : "no GUIMapWorld";
                 MelonLogger.Msg(string.Format("map copy check: transforms={0} panels={1} world={2}", transforms, panels, state));
+                Type cap = GameApi.Find("CapturedBgNGUI");
+                if (cap != null)
+                {
+                    foreach (UnityEngine.Object o in UnityEngine.Object.FindObjectsOfType(cap))
+                    {
+                        Component c = o as Component;
+                        if (c == null) continue;
+                        MelonLogger.Msg("captured bg " + c.name + " layer=" + c.gameObject.layer + " owned=" + c.transform.IsChildOf(root.transform) + " parent=" + (c.transform.parent != null ? c.transform.parent.name : "-"));
+                    }
+                }
             }
             catch (Exception e)
             {
@@ -177,6 +194,21 @@ namespace DualScreenBridge
             {
                 UnityEngine.Object.Destroy(readback);
                 readback = null;
+            }
+        }
+
+        // The game moves parts of its windows onto its own UI layer; pull them back every frame.
+        private void Relayer()
+        {
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (t.gameObject.layer == layer) continue;
+                if (fixLogged < 12)
+                {
+                    fixLogged++;
+                    MelonLogger.Msg("moved " + t.name + " from layer " + t.gameObject.layer + " back to " + layer);
+                }
+                t.gameObject.layer = layer;
             }
         }
 
