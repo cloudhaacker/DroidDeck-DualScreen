@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MelonLoader;
 using UnityEngine;
 
@@ -21,6 +22,9 @@ namespace DualScreenBridge
         private bool camerasLogged;
         private float createdAt;
         private int fixLogged;
+        private float strayAt;
+        private int strayScans;
+        private readonly List<GameObject> strays = new List<GameObject>();
 
         public string Key = "";
 
@@ -115,6 +119,11 @@ namespace DualScreenBridge
             Key = key;
             createdAt = Time.realtimeSinceStartup;
             fixLogged = 0;
+            strayScans = 0;
+            strayAt = Time.realtimeSinceStartup + 0.2f;
+            // Runs right before any camera that draws the game's menu layer, so the copy can never show on the main screen.
+            Camera.onPreCull -= OnPreCull;
+            Camera.onPreCull += OnPreCull;
             diagnoseAt = Time.realtimeSinceStartup + 2f;
             MelonLogger.Msg(string.Format("map copy created: key={0} mode={1} layer={2} target={3}x{4} ui={5}x{6}", key, mode, layer, width, height, useW, useH));
             return null;
@@ -124,6 +133,12 @@ namespace DualScreenBridge
         {
             if (root == null) return;
             if (instance != null) Relayer();
+            if (strayScans < 12 && Time.realtimeSinceStartup >= strayAt)
+            {
+                strayAt = Time.realtimeSinceStartup + 0.4f;
+                strayScans++;
+                HideStrays();
+            }
             if (Time.realtimeSinceStartup >= isolateAt)
             {
                 isolateAt = Time.realtimeSinceStartup + 1f;
@@ -179,6 +194,9 @@ namespace DualScreenBridge
         {
             diagnoseAt = 0f;
             Key = "";
+            Camera.onPreCull -= OnPreCull;
+            foreach (GameObject s in strays) if (s != null) UnityEngine.Object.Destroy(s);
+            strays.Clear();
             if (cameraObject != null) UnityEngine.Object.Destroy(cameraObject);
             if (root != null) UnityEngine.Object.Destroy(root);
             cameraObject = null;
@@ -194,6 +212,35 @@ namespace DualScreenBridge
             {
                 UnityEngine.Object.Destroy(readback);
                 readback = null;
+            }
+        }
+
+        private void OnPreCull(Camera cam)
+        {
+            try
+            {
+                if (root == null || instance == null || cam == null) return;
+                if ((cam.cullingMask & (1 << FirstLayer)) == 0) return;
+                Relayer();
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        // The game also makes a full-screen "captured background" object for its map window, on the main layer.
+        private void HideStrays()
+        {
+            if (BridgeMod.RealMapOpen) return;
+            Type cap = GameApi.Find("CapturedBgNGUI");
+            if (cap == null) return;
+            foreach (UnityEngine.Object o in UnityEngine.Object.FindObjectsOfType(cap))
+            {
+                Component c = o as Component;
+                if (c == null || !c.gameObject.activeSelf || c.transform.IsChildOf(root.transform)) continue;
+                c.gameObject.SetActive(false);
+                strays.Add(c.gameObject);
+                MelonLogger.Msg("hid the map copy's captured background (" + c.name + ")");
             }
         }
 
