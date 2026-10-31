@@ -83,5 +83,24 @@ namespace DualScreenBridge
                 return false;
             }
         }
+
+        public static int MapNo()
+        {
+            return Convert.ToInt32(Invoke(null, Find("dq_mapjump"), "GetMainMapNo"));
+        }
+
+        // Mirrors the game's own map button: 2 town or dungeon map, 1 world map, 0 no map here.
+        public static int AutoMode()
+        {
+            Type guide = Find("guidmap");
+            object mapNo = Invoke(null, Find("dq_mapjump"), "GetMainMapNo");
+            int navi = Convert.ToInt32(Invoke(null, guide, "IsEnableOpenNaviMap", mapNo));
+            if (navi > 0)
+            {
+                if (navi == 2 && !(bool)Invoke(null, guide, "CheckOpenNaviMap", mapNo)) return 0;
+                return 2;
+            }
+            return (bool)Invoke(null, guide, "CheckOpenFieldMap", mapNo) ? 1 : 0;
+        }
     }
 }

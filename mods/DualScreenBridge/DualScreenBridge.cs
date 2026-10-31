@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.2.0", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.3.0", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -14,8 +14,11 @@ namespace DualScreenBridge
         private const BindingFlags Statics = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
         internal static BridgeClient Client;
         internal static readonly HeadlessMap Map = new HeadlessMap();
-        internal static bool DesiredLocal;
-        internal static string Status = "waiting for a command";
+        internal static volatile bool RealMapOpen;
+        internal static float ResumeAt;
+        // -1 follows the game's own default, 0 world map, 1 area map.
+        internal static int DesiredView = -1;
+        internal static string Status = "starting";
 
         public override void OnLateInitializeMelon()
         {
@@ -70,24 +73,29 @@ namespace DualScreenBridge
             return !Map.Owns(__instance);
         }
 
+        // The real map and the copy share static state, so the copy steps aside while the real one is up.
         private static void AfterMapStart(object __instance)
         {
-            if (!Map.Owns(__instance)) MelonLogger.Msg("in-game map opened");
+            if (Map.Owns(__instance)) return;
+            RealMapOpen = true;
+            Map.Destroy();
+            MelonLogger.Msg("in-game map opened");
         }
 
         private static void AfterMapEnd(object __instance)
         {
-            if (!Map.Owns(__instance)) MelonLogger.Msg("in-game map closed");
+            if (Map.Owns(__instance)) return;
+            RealMapOpen = false;
+            ResumeAt = Time.realtimeSinceStartup + 1.5f;
+            MelonLogger.Msg("in-game map closed");
         }
 
         private static void AfterWorldInit(object __instance)
         {
-            if (!Map.Owns(__instance)) return;
+            if (DesiredView < 0 || !Map.Owns(__instance)) return;
             try
             {
-                Type t = __instance.GetType();
-                GameApi.SetField(__instance, t, "isLocalMap", DesiredLocal);
-                GameApi.Invoke(__instance, t, "ChangeSwitchButtonDisp");
+                GameApi.SetField(__instance, __instance.GetType(), "isLocalMap", DesiredView == 1);
             }
             catch (Exception e)
             {
@@ -98,6 +106,7 @@ namespace DualScreenBridge
 
     public class BridgePump : MonoBehaviour
     {
+        private float nextPoll;
         private float nextFrame;
         private string sentTitle;
         private bool wasConnected;
@@ -115,9 +124,21 @@ namespace DualScreenBridge
             while (client.TryTakeCommand(out command))
             {
                 MelonLogger.Msg("command: " + command);
-                Handle(command);
+                if (command == "view:area") { BridgeMod.DesiredView = 1; nextPoll = 0f; }
+                else if (command == "view:world") { BridgeMod.DesiredView = 0; nextPoll = 0f; }
             }
             BridgeMod.Map.Tick();
+            if (Time.realtimeSinceStartup >= nextPoll)
+            {
+                nextPoll = Time.realtimeSinceStartup + 1f;
+                try { Poll(client); }
+                catch (Exception e)
+                {
+                    BridgeMod.Status = "error: " + e.Message;
+                    MelonLogger.Warning(e.ToString());
+                    nextPoll = Time.realtimeSinceStartup + 5f;
+                }
+            }
 
             bool connected = client.Connected;
             if (connected && !wasConnected && !BridgeMod.Map.Active) client.SetFrame(Placeholder());
@@ -131,24 +152,36 @@ namespace DualScreenBridge
             }
         }
 
-        private static void Handle(string command)
+        private static void Poll(BridgeClient client)
         {
-            bool local;
-            if (command == "view:area") local = true;
-            else if (command == "view:world") local = false;
-            else return;
-            string error;
-            try
+            HeadlessMap map = BridgeMod.Map;
+            if (!client.Connected) return;
+            if (BridgeMod.RealMapOpen) { BridgeMod.Status = "in-game map is open"; return; }
+            if (Time.realtimeSinceStartup < BridgeMod.ResumeAt) return;
+            if (!GameApi.HasPlayer())
             {
-                error = BridgeMod.Map.Create(local);
+                map.Destroy();
+                BridgeMod.Status = "waiting for the field";
+                return;
             }
-            catch (Exception e)
+            int mode = GameApi.AutoMode();
+            if (mode == 0)
             {
-                error = e.GetType().Name + ": " + e.Message;
-                MelonLogger.Warning(e.ToString());
+                map.Destroy();
+                BridgeMod.Status = "no map for this area";
+                return;
             }
-            BridgeMod.Status = error != null ? "map: " + error : "showing the " + (local ? "area" : "world") + " map";
-            MelonLogger.Msg(BridgeMod.Status);
+            string key = GameApi.MapNo() + "/" + mode + "/" + BridgeMod.DesiredView;
+            if (map.Alive && map.Key == key) return;
+            string error = map.Create(mode, key);
+            if (error != null)
+            {
+                BridgeMod.Status = "map: " + error;
+                MelonLogger.Msg(BridgeMod.Status);
+                return;
+            }
+            BridgeMod.Status = mode == 2 ? "town or dungeon map" : (BridgeMod.DesiredView == 1 ? "area map" : (BridgeMod.DesiredView == 0 ? "world map" : "field map"));
+            MelonLogger.Msg("showing: " + BridgeMod.Status);
         }
 
         private IEnumerator CaptureLoop()
