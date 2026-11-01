@@ -28,7 +28,18 @@ sends `MelonLoader/Latest.log` plus screenshots.
 5. Leave any part on the game's menu layer 8: all parts are moved back to layer 31 just before each camera culls.
 6. Rebuild itself in a loop: it starts only after an Area or World tap and backs off after 4 quick closes.
 
-## Status (v0.6.4)
+## v0.6.4 log findings (first log with leak and camera logging)
+- Leak found: `StateFlowBase.Update > GUIMap.UpdateStatus > GUIMapCommon.OnUpdate > GUIMapTownAndDungeon.OnUpdate >
+  GUIDelayWindow.MoveWindow > UITweener.Play > TweenPosition.ChangeEnabled > UICamera.LockInput` ran for real, because
+  the copy's per-frame update was not inside an own call. v0.6.5 wraps `StateFlowBase.Update` as an own call.
+- About 1s after the copy was created the game's `m1 menuBg` camera (full screen, depth 30) went from mask 0x80000 /
+  clear Depth to mask 0x0 / clear Color. A full-screen camera clearing to a colour over the field camera would give a
+  black top screen; the call that changed it is not attributed yet. Check whether it still happens in v0.6.5.
+- Later in that run `CapturedTexture` came on, then `a main` and `m2 menu` went off; unknown whether that was the game
+  reacting to something John pressed.
+- The game's own `CapturedBGNGUI(Clone)` (parent AppSystem) exists before the copy; v0.6.3 deactivated it as a "stray".
+
+## Status (v0.6.5, v0.6.4 changes included)
 - v0.6.1 and v0.6.3 logs were clean but John still lost the top screen and controller after opening the map below.
   The v0.6.3 log shows no blocked or leaked calls at all, so it cannot say which call reaches the real game.
 - v0.6.4 (source only until built): the prefab is instantiated under the copy's root inside an own call, so Awake and

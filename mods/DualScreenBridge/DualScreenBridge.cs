@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.4", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.5", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -56,6 +56,10 @@ namespace DualScreenBridge
                 Hook(harmony, guiMap, "FieldOff", "SkipOwn", null);
                 Hook(harmony, guiMap, "FieldOn", "SkipOwn", null);
                 Hook(harmony, guiMap, "ProcessRetCmd", "EnterOwn", "LeaveOwn");
+                // The per-frame state machine runs the copy's window tweens, which lock the game's input.
+                Type flow = GameApi.Find("StateFlowBase");
+                if (flow != null) Hook(harmony, flow, "Update", "EnterOwn", "LeaveOwn");
+                else MelonLogger.Warning("StateFlowBase not found, the copy's per-frame update is not isolated");
                 // The world map locks input and grabs the game's menu camera for a fade; none of that may reach the real game.
                 Hook(harmony, world, "OnExchangeWorldLocal", "EnterOwn", "LeaveOwn");
                 Hook(harmony, world, "AlphaFadeUpdate", "EnterOwn", "LeaveOwn");
