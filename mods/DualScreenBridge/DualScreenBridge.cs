@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.1", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.2", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -279,6 +279,8 @@ namespace DualScreenBridge
                 BridgeMod.Status = "no map for this area";
                 return;
             }
+            // Inside a town the game's button shows the town map; the World tap should still reach the world map.
+            if (mode == 2 && BridgeMod.DesiredView == 0 && GameApi.WorldMapAvailable()) mode = 1;
             string key = GameApi.MapNo() + "/" + mode + "/" + BridgeMod.DesiredView;
             if (map.Alive && map.Key == key) return;
             string error = map.Create(mode, key);
