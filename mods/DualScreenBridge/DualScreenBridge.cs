@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.3", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.4", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -104,11 +104,55 @@ namespace DualScreenBridge
                 {
                     harmony.Patch(m, pre, post);
                     MelonLogger.Msg("hooked " + target.Name + "." + method);
+                    if (prefix == "SkipInOwnCall") AuditPatch(harmony, m, "Audit");
+                    else if (prefix == "SkipOwnArg") AuditPatch(harmony, m, "AuditArg");
                 }
                 catch (Exception e)
                 {
                     MelonLogger.Warning("could not hook " + target.Name + "." + method + ": " + e.Message);
                 }
+            }
+        }
+
+        private static int auditLogged;
+
+        private static void AuditPatch(HarmonyLib.Harmony harmony, MethodInfo m, string audit)
+        {
+            try
+            {
+                HarmonyMethod pre = new HarmonyMethod(typeof(BridgeMod).GetMethod(audit, Statics));
+                pre.priority = Priority.First;
+                harmony.Patch(m, pre, null);
+            }
+            catch (Exception e)
+            {
+                MelonLogger.Warning("could not audit " + m.Name + ": " + e.Message);
+            }
+        }
+
+        // Logs calls that reach the real game from the copy's own code while the copy exists.
+        private static void Audit(MethodBase __originalMethod)
+        {
+            if (OwnDepth == 0) ReportLeak(__originalMethod);
+        }
+
+        private static void AuditArg(MethodBase __originalMethod, object __0)
+        {
+            if (OwnDepth == 0 && !Map.Owns(__0)) ReportLeak(__originalMethod);
+        }
+
+        private static void ReportLeak(MethodBase method)
+        {
+            try
+            {
+                if (!Map.Active || auditLogged >= 40) return;
+                string stack = new System.Diagnostics.StackTrace(2, false).ToString();
+                if (stack.IndexOf("GUIMap", StringComparison.Ordinal) < 0) return;
+                auditLogged++;
+                MelonLogger.Msg("reached the real game from the map copy: " + method.DeclaringType.Name + "." + method.Name + "\n" + stack);
+            }
+            catch (Exception)
+            {
             }
         }
 

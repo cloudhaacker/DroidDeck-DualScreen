@@ -25,6 +25,10 @@ namespace DualScreenBridge
         private float strayAt;
         private int strayScans;
         private readonly List<GameObject> strays = new List<GameObject>();
+        private readonly HashSet<int> preexisting = new HashSet<int>();
+        private string lastSignature;
+        private int cameraChanges;
+        private int afterDumps;
 
         public string Key = "";
 
@@ -125,8 +129,22 @@ namespace DualScreenBridge
             object modeValue = GameApi.GetField(null, guiMap, "gMapMode");
             GameApi.SetField(null, guiMap, "mapMode", Enum.ToObject(modeValue.GetType(), mode));
 
-            instance = (GameObject)UnityEngine.Object.Instantiate(prefab);
-            instance.transform.SetParent(root.transform, false);
+            preexisting.Clear();
+            Type captured = GameApi.Find("CapturedBgNGUI");
+            if (captured != null)
+            {
+                foreach (UnityEngine.Object o in UnityEngine.Object.FindObjectsOfType(captured)) preexisting.Add(o.GetInstanceID());
+            }
+
+            BridgeMod.OwnDepth++;
+            try
+            {
+                instance = (GameObject)UnityEngine.Object.Instantiate(prefab, root.transform, false);
+            }
+            finally
+            {
+                BridgeMod.OwnDepth--;
+            }
             instance.transform.localPosition = Vector3.zero;
             instance.transform.localRotation = Quaternion.identity;
             instance.transform.localScale = Vector3.one;
@@ -135,6 +153,8 @@ namespace DualScreenBridge
 
             Key = key;
             createdAt = Time.realtimeSinceStartup;
+            lastSignature = null;
+            cameraChanges = 0;
             fixLogged = 0;
             strayScans = 0;
             strayAt = Time.realtimeSinceStartup + 0.2f;
@@ -160,6 +180,7 @@ namespace DualScreenBridge
             {
                 isolateAt = Time.realtimeSinceStartup + 1f;
                 Isolate();
+                WatchCameras();
             }
             if (diagnoseAt <= 0f || Time.realtimeSinceStartup < diagnoseAt) return;
             diagnoseAt = 0f;
@@ -172,6 +193,12 @@ namespace DualScreenBridge
                 Component w = world != null ? root.GetComponentInChildren(world, true) : null;
                 string state = w != null ? GameApi.GetField(w, world, "isLocalMap") + " / " + GameApi.GetField(w, world, "currentStatus") : "no GUIMapWorld";
                 MelonLogger.Msg(string.Format("map copy check: transforms={0} panels={1} world={2}", transforms, panels, state));
+                if (afterDumps < 3)
+                {
+                    afterDumps++;
+                    DumpCameras("after");
+                }
+                LogSelected();
                 Type cap = GameApi.Find("CapturedBgNGUI");
                 if (cap != null)
                 {
@@ -220,10 +247,28 @@ namespace DualScreenBridge
                 if (retired.Count > 8) retired.RemoveAt(0);
                 ownMap = null;
             }
-            foreach (GameObject s in strays) if (s != null) UnityEngine.Object.Destroy(s);
+            if (cameraObject != null)
+            {
+                Camera own = cameraObject.GetComponent<Camera>();
+                if (own != null) own.enabled = false;
+                UnityEngine.Object.Destroy(cameraObject);
+            }
+            // The window's own cleanup (input unlock, captured background) must run inside an own call, not at end of frame.
+            BridgeMod.OwnDepth++;
+            try
+            {
+                foreach (GameObject s in strays) if (s != null) UnityEngine.Object.DestroyImmediate(s);
+                if (root != null) UnityEngine.Object.DestroyImmediate(root);
+            }
+            catch (Exception e)
+            {
+                MelonLogger.Warning("could not remove the map copy cleanly: " + e.Message);
+            }
+            finally
+            {
+                BridgeMod.OwnDepth--;
+            }
             strays.Clear();
-            if (cameraObject != null) UnityEngine.Object.Destroy(cameraObject);
-            if (root != null) UnityEngine.Object.Destroy(root);
             cameraObject = null;
             root = null;
             instance = null;
@@ -264,7 +309,7 @@ namespace DualScreenBridge
             foreach (UnityEngine.Object o in UnityEngine.Object.FindObjectsOfType(cap))
             {
                 Component c = o as Component;
-                if (c == null || !c.gameObject.activeSelf || c.transform.IsChildOf(root.transform)) continue;
+                if (c == null || !c.gameObject.activeSelf || c.transform.IsChildOf(root.transform) || preexisting.Contains(c.GetInstanceID())) continue;
                 c.gameObject.SetActive(false);
                 strays.Add(c.gameObject);
                 MelonLogger.Msg("hid the map copy's captured background (" + c.name + ")");
@@ -304,9 +349,46 @@ namespace DualScreenBridge
             camerasLogged = true;
             MelonLogger.Msg(string.Format("ui camera {0}: aspect={1} rect={2} ortho={3} size={4} pixels={5}x{6}; fixed ui {7}x{8}; screen {9}x{10}",
                 main.name, main.aspect, main.rect, main.orthographic, main.orthographicSize, main.pixelWidth, main.pixelHeight, useW, useH, Screen.width, Screen.height));
-            foreach (Camera c in Camera.allCameras)
+            DumpCameras("before");
+        }
+
+        private static void DumpCameras(string tag)
+        {
+            foreach (Camera c in UnityEngine.Object.FindObjectsOfType<Camera>())
             {
-                MelonLogger.Msg(string.Format("camera {0}: mask=0x{1:X} depth={2} ortho={3} rect={4}", c.name, c.cullingMask, c.depth, c.orthographic, c.rect));
+                MelonLogger.Msg(string.Format("{0} camera {1}: on={2} mask=0x{3:X} depth={4} clear={5} rect={6} target={7}",
+                    tag, c.name, c.enabled && c.gameObject.activeInHierarchy, c.cullingMask, c.depth, c.clearFlags, c.rect, c.targetTexture != null));
+            }
+        }
+
+        // Logs every camera again the moment any of them is switched off or has its layer mask changed while the copy exists.
+        private void WatchCameras()
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            foreach (Camera c in UnityEngine.Object.FindObjectsOfType<Camera>())
+            {
+                sb.Append(c.name).Append(':').Append(c.enabled && c.gameObject.activeInHierarchy).Append(':').Append(c.cullingMask).Append(';');
+            }
+            string signature = sb.ToString();
+            if (signature == lastSignature) return;
+            bool first = lastSignature == null;
+            lastSignature = signature;
+            if (first || cameraChanges >= 6) return;
+            cameraChanges++;
+            MelonLogger.Msg("camera state changed while the copy exists");
+            DumpCameras("changed");
+        }
+
+        private static void LogSelected()
+        {
+            try
+            {
+                Type ui = GameApi.Find("UICamera");
+                if (ui != null) MelonLogger.Msg("controller focus: " + GameApi.Invoke(null, ui, "get_selectedObject"));
+            }
+            catch (Exception e)
+            {
+                MelonLogger.Msg("controller focus unavailable: " + e.Message);
             }
         }
 

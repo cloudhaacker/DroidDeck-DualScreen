@@ -28,14 +28,21 @@ sends `MelonLoader/Latest.log` plus screenshots.
 5. Leave any part on the game's menu layer 8: all parts are moved back to layer 31 just before each camera culls.
 6. Rebuild itself in a loop: it starts only after an Area or World tap and backs off after 4 quick closes.
 
-## Status (v0.6.3)
-- v0.6.1 log was clean but John still lost the top screen and controller after opening the map below; v0.6.3 adds
-  items 3 and 4 above for the world-map code paths. Not yet confirmed on device.
+## Status (v0.6.4)
+- v0.6.1 and v0.6.3 logs were clean but John still lost the top screen and controller after opening the map below.
+  The v0.6.3 log shows no blocked or leaked calls at all, so it cannot say which call reaches the real game.
+- v0.6.4 (source only until built): the prefab is instantiated under the copy's root inside an own call, so Awake and
+  OnEnable are owned (before, ownership only existed after Instantiate returned); the copy is removed with
+  DestroyImmediate inside an own call, so its OnDestroy cleanup (input unlock, captured background) no longer runs for
+  real at end of frame; the camera is disabled before its RenderTexture is released; the stray captured-background hider
+  skips objects that existed before the copy.
+- v0.6.4 logging to read first: "reached the real game from the map copy" (hooked calls with the stack),
+  "before/after/changed camera" dumps (enabled state, mask, depth, clear flags), "controller focus" (NGUI selected object).
 - World tap inside a town uses the world map (mode 1) when `CheckOpenFieldMap` allows it (v0.6.2).
 - Icons now appear on the bottom map.
 
 ## Next
-- Confirm v0.6.3 leaves the top screen and controller alone.
+- Build v0.6.4 (needs the game's Managed folder and MelonLoader folder), test, and read the leak and camera lines in the log.
 - Crop the bottom-screen picture to just the map and hide the zoom, Icons Off and close buttons.
 - Live player marker, auto town/field switching check, minimap-off check.
 - Move the mod out into its own repo for Nexus; keep this fork for the app. Rebase the branch onto the new fork `main`.
