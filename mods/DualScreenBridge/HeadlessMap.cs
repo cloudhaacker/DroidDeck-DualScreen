@@ -34,8 +34,19 @@ namespace DualScreenBridge
 
         public bool Alive { get { return root != null && instance != null; } }
 
+        // The game's map window runs cleanup code after the copy is gone, so the copy's map window is remembered
+        // by reference even once its root no longer exists.
+        private Component ownMap;
+        private readonly List<Component> retired = new List<Component>();
+
         public bool Owns(object component)
         {
+            if (component == null) return false;
+            if (object.ReferenceEquals(component, ownMap)) return true;
+            foreach (Component r in retired)
+            {
+                if (object.ReferenceEquals(r, component)) return true;
+            }
             Component c = component as Component;
             return c != null && root != null && c.transform.IsChildOf(root.transform);
         }
@@ -115,6 +126,7 @@ namespace DualScreenBridge
             instance.transform.localRotation = Quaternion.identity;
             instance.transform.localScale = Vector3.one;
             foreach (Transform t in instance.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
+            ownMap = instance.GetComponentInChildren(guiMap, true);
 
             Key = key;
             createdAt = Time.realtimeSinceStartup;
@@ -195,6 +207,12 @@ namespace DualScreenBridge
             diagnoseAt = 0f;
             Key = "";
             Camera.onPreCull -= OnPreCull;
+            if (!object.ReferenceEquals(ownMap, null))
+            {
+                retired.Add(ownMap);
+                if (retired.Count > 8) retired.RemoveAt(0);
+                ownMap = null;
+            }
             foreach (GameObject s in strays) if (s != null) UnityEngine.Object.Destroy(s);
             strays.Clear();
             if (cameraObject != null) UnityEngine.Object.Destroy(cameraObject);

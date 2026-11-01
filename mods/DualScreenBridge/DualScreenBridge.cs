@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.0", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.1", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -215,6 +215,17 @@ namespace DualScreenBridge
             }
         }
 
+        private static bool RealMapExists()
+        {
+            Type guiMap = GameApi.Find("GUIMap");
+            if (guiMap == null) return false;
+            foreach (UnityEngine.Object o in UnityEngine.Object.FindObjectsOfType(guiMap))
+            {
+                if (!BridgeMod.Map.Owns(o)) return true;
+            }
+            return false;
+        }
+
         private void LateUpdate()
         {
             BridgeMod.Map.Tick();
@@ -224,7 +235,14 @@ namespace DualScreenBridge
         {
             HeadlessMap map = BridgeMod.Map;
             if (!client.Connected) return;
-            if (BridgeMod.RealMapOpen) { BridgeMod.Status = "in-game map is open"; return; }
+            if (BridgeMod.RealMapOpen)
+            {
+                if (RealMapExists()) { BridgeMod.Status = "in-game map is open"; return; }
+                BridgeMod.RealMapOpen = false;
+                BridgeMod.ResumeAt = Time.realtimeSinceStartup + 1.5f;
+                MelonLogger.Msg("no in-game map window found any more, continuing");
+                return;
+            }
             if (Time.realtimeSinceStartup < BridgeMod.ResumeAt) return;
             if (!BridgeMod.Armed)
             {
