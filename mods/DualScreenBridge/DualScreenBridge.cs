@@ -121,7 +121,7 @@ namespace DualScreenBridge
             try
             {
                 HarmonyMethod pre = new HarmonyMethod(typeof(BridgeMod).GetMethod(audit, Statics));
-                pre.priority = Priority.First;
+                pre.priority = HarmonyLib.Priority.First;
                 harmony.Patch(m, pre, null);
             }
             catch (Exception e)
