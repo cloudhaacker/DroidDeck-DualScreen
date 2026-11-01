@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.2", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.3", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -56,6 +56,18 @@ namespace DualScreenBridge
                 Hook(harmony, guiMap, "FieldOff", "SkipOwn", null);
                 Hook(harmony, guiMap, "FieldOn", "SkipOwn", null);
                 Hook(harmony, guiMap, "ProcessRetCmd", "EnterOwn", "LeaveOwn");
+                // The world map locks input and grabs the game's menu camera for a fade; none of that may reach the real game.
+                Hook(harmony, world, "OnExchangeWorldLocal", "EnterOwn", "LeaveOwn");
+                Hook(harmony, world, "AlphaFadeUpdate", "EnterOwn", "LeaveOwn");
+                Hook(harmony, world, "ResetMapDrawItem", "EnterOwn", "LeaveOwn");
+                Type captured = GameApi.Find("CapturedBgNGUI");
+                if (captured != null)
+                {
+                    Hook(harmony, captured, "Enable", "SkipInOwnCall", null);
+                    Hook(harmony, captured, "Disable", "SkipInOwnCall", null);
+                    Hook(harmony, captured, "set_RenderCamera", "SkipInOwnCall", null);
+                    Hook(harmony, captured, "SetLocalPosition", "SkipInOwnCall", null);
+                }
                 Type camera = GameApi.Find("UICamera");
                 if (camera != null)
                 {
@@ -106,8 +118,8 @@ namespace DualScreenBridge
             return !Map.Owns(__instance);
         }
 
-        // True only while the copy's own command handler runs, so its input locks are ignored.
-        internal static bool InOwnCall;
+        // Greater than zero only while one of the copy's own methods runs, so its input locks and camera grabs are ignored.
+        internal static int OwnDepth;
 
         private static bool SkipOwnArg(object __0)
         {
@@ -116,18 +128,18 @@ namespace DualScreenBridge
 
         private static bool EnterOwn(object __instance)
         {
-            InOwnCall = Map.Owns(__instance);
+            if (Map.Owns(__instance)) OwnDepth++;
             return true;
         }
 
-        private static void LeaveOwn()
+        private static void LeaveOwn(object __instance)
         {
-            InOwnCall = false;
+            if (OwnDepth > 0 && Map.Owns(__instance)) OwnDepth--;
         }
 
         private static bool SkipInOwnCall()
         {
-            return !InOwnCall;
+            return OwnDepth == 0;
         }
 
         // The real map and the copy share static state, so the copy steps aside while the real one is up.
@@ -175,7 +187,7 @@ namespace DualScreenBridge
 
         private void Update()
         {
-            BridgeMod.InOwnCall = false;
+            BridgeMod.OwnDepth = 0;
             BridgeClient client = BridgeMod.Client;
             if (client == null) return;
             string command;

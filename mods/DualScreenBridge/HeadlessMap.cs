@@ -37,6 +37,8 @@ namespace DualScreenBridge
         // The game's map window runs cleanup code after the copy is gone, so the copy's map window is remembered
         // by reference even once its root no longer exists.
         private Component ownMap;
+        private Camera uiCamera;
+        private int uiMask;
         private readonly List<Component> retired = new List<Component>();
 
         public bool Owns(object component)
@@ -82,6 +84,9 @@ namespace DualScreenBridge
             if (prefab == null) return "map prefab missing";
             Camera main = GameApi.Invoke(null, cameraControl, "GetCamera") as Camera;
             if (main == null) return "no UI camera";
+            // The map window edits this camera's layer mask; it is held at this value while the copy exists.
+            uiCamera = main;
+            uiMask = main.cullingMask;
 
             layer = FreeLayer();
             if (layer < 0) return "no free layer";
@@ -207,6 +212,8 @@ namespace DualScreenBridge
             diagnoseAt = 0f;
             Key = "";
             Camera.onPreCull -= OnPreCull;
+            if (uiCamera != null && !BridgeMod.RealMapOpen) uiCamera.cullingMask = uiMask;
+            uiCamera = null;
             if (!object.ReferenceEquals(ownMap, null))
             {
                 retired.Add(ownMap);
@@ -237,7 +244,9 @@ namespace DualScreenBridge
         {
             try
             {
-                if (root == null || instance == null || cam == null) return;
+                if (root == null || cam == null) return;
+                if (uiCamera != null && cam == uiCamera && !BridgeMod.RealMapOpen && cam.cullingMask != uiMask) cam.cullingMask = uiMask;
+                if (instance == null) return;
                 if ((cam.cullingMask & (1 << FirstLayer)) == 0) return;
                 Relayer();
             }
