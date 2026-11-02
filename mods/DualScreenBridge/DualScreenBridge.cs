@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.7", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.8", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -85,7 +85,7 @@ namespace DualScreenBridge
                 if (scene != null)
                 {
                     Hook(harmony, scene, "FadeOut", "SkipInOwnCall", null);
-                    Hook(harmony, scene, "FadeIn", "SkipInOwnCall", null);
+                    Hook(harmony, scene, "FadeIn", "OwnFadeIn", null);
                     Hook(harmony, scene, "FadeCheck", "FadeDone", null);
                 }
                 else MelonLogger.Warning("dqCScene not found, the copy will fade the main screen");
@@ -129,6 +129,8 @@ namespace DualScreenBridge
                 if (m.Name != method) continue;
                 // Hooks that read the first argument cannot patch a method without one.
                 if (prefix == "SkipOwnArg" && m.GetParameters().Length == 0) continue;
+                // The map windows only use the parameterless FadeCheck, and the other overload does not compile as a patch target.
+                if (prefix == "FadeDone" && m.GetParameters().Length != 0) continue;
                 try
                 {
                     harmony.Patch(m, pre, post);
@@ -215,11 +217,21 @@ namespace DualScreenBridge
             return OwnDepth == 0;
         }
 
-        // The copy's fade steps wait for the scene fade to finish, so a skipped fade has to report that it is done.
+        private static int ownFadeInFrame = -10;
+
+        // After FadeOut the copy waits for FadeCheck to report a finished fade; after FadeIn it first waits for one
+        // unfinished frame and then a finished one, so a skipped FadeIn has to look like a fade that ran for a frame.
+        private static bool OwnFadeIn()
+        {
+            if (OwnDepth == 0) return true;
+            ownFadeInFrame = Time.frameCount;
+            return false;
+        }
+
         private static bool FadeDone(ref bool __result)
         {
             if (OwnDepth == 0) return true;
-            __result = true;
+            __result = Time.frameCount - ownFadeInFrame > 1;
             return false;
         }
 

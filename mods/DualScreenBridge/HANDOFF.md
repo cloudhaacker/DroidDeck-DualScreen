@@ -63,6 +63,24 @@ sends `MelonLoader/Latest.log` plus screenshots.
   `SessionPrefs`), 4 map features (icons on/off, touch pan and zoom, hide unvisited places).
 - Possible later cleanup: for the world copy the stray hider deactivates the game's shared `CapturedBGNGUI(Clone)`.
 
+## v0.6.7 result and v0.6.8
+- v0.6.7 on device: the fade and slime icon are gone. New problems John reported: a small camera jump behind the hero
+  and a hiccup when switching between Area and World; after closing the real map opened from the item menu, the bottom
+  map goes black for about a second while the copy is rebuilt; after the real world map had run once the bottom world
+  map showed only the visited icons (before that it showed every icon, even unvisited places).
+- Bug in v0.6.7: the copy's state machine sat in `WaitOpenFadeIn` forever (log: `world=False / WaitOpenFadeIn`) because
+  `FadeCheck` always reported "finished". The game waits for finished after `FadeOut`, but after the open-time `FadeIn`
+  it waits for one unfinished frame (`FadeCheck` false) and then moves on; the close path waits for finished.
+  v0.6.8 records the frame of a skipped own `FadeIn` and reports unfinished for that frame and the next.
+- The `FadeCheck(int)` overload fails to patch (IL compile error); the map windows only call the parameterless one, so it
+  is no longer hooked.
+- Ideas for the jump and hiccup (unconfirmed): the rebuild frame is large (destroy, instantiate 84 to 366 transforms,
+  new RenderTexture) and the field camera follow may overshoot after a long frame; keep both copies built and only
+  switch which one is active; hold the last frame instead of sending the black first frames of a new copy.
+- Icons: `GUIMap.StartMap` is skipped for the copy (`SkipOwn`), so whatever it sets up for the visited-place data may not
+  run; the real world map filling in the data suggests static state is set there or in `guidmap.InitGuidMap`.
+- `worldview_2.resetCameraFlag` is set by `FieldGUIMenu.Open` and by the close path of `GUIMapWorld.OnUpdate`.
+
 ## Status (v0.6.6, v0.6.4 and v0.6.5 changes included)
 - v0.6.1 and v0.6.3 logs were clean but John still lost the top screen and controller after opening the map below.
   The v0.6.3 log shows no blocked or leaked calls at all, so it cannot say which call reaches the real game.
