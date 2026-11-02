@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.5", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.6", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -64,6 +64,22 @@ namespace DualScreenBridge
                 Hook(harmony, world, "OnExchangeWorldLocal", "EnterOwn", "LeaveOwn");
                 Hook(harmony, world, "AlphaFadeUpdate", "EnterOwn", "LeaveOwn");
                 Hook(harmony, world, "ResetMapDrawItem", "EnterOwn", "LeaveOwn");
+                Hook(harmony, world, "SetMapDrawItem", "EnterOwn", "LeaveOwn");
+                // Every map window paints the game's one shared menu background solid black and restores it on close.
+                Type town = GameApi.Find("GUIMapTownAndDungeon");
+                if (town != null)
+                {
+                    Hook(harmony, town, "SetMapDrawItem", "EnterOwn", "LeaveOwn");
+                    Hook(harmony, town, "ResetMapDrawItem", "EnterOwn", "LeaveOwn");
+                }
+                Type background = GameApi.Find("BackGroundUI");
+                if (background != null)
+                {
+                    Hook(harmony, background, "DispStart", "SkipInOwnCall", null);
+                    Hook(harmony, background, "DispEnd", "SkipInOwnCall", null);
+                    Hook(harmony, background, "SetSolidColor", "SkipInOwnCall", null);
+                }
+                else MelonLogger.Warning("BackGroundUI not found, the copy will blank the main screen");
                 Type captured = GameApi.Find("CapturedBgNGUI");
                 if (captured != null)
                 {
@@ -339,8 +355,8 @@ namespace DualScreenBridge
                 BridgeMod.Status = "no map for this area";
                 return;
             }
-            // Inside a town the game's button shows the town map; the World tap should still reach the world map.
-            if (mode == 2 && BridgeMod.DesiredView == 0 && GameApi.WorldMapAvailable()) mode = 1;
+            // The game's item-menu world map command sets the mode directly, so it works from inside a town too.
+            if (mode == 2 && BridgeMod.DesiredView == 0) mode = 1;
             string key = GameApi.MapNo() + "/" + mode + "/" + BridgeMod.DesiredView;
             if (map.Alive && map.Key == key) return;
             string error = map.Create(mode, key);

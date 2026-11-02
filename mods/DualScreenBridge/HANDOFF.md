@@ -39,7 +39,19 @@ sends `MelonLoader/Latest.log` plus screenshots.
   reacting to something John pressed.
 - The game's own `CapturedBGNGUI(Clone)` (parent AppSystem) exists before the copy; v0.6.3 deactivated it as a "stray".
 
-## Status (v0.6.5, v0.6.4 changes included)
+## Cause of the black top screen (found from the IL, v0.6.6 fix)
+- `BackGroundUI` is the game's single menu-background object (the `m1 menuBg` camera). `GUIMapTownAndDungeon` and
+  `GUIMapWorld` `SetMapDrawItem` call `BackGroundUI.DispStart` and `SetSolidColor` (mask 0, clear Color, full screen
+  black over the field); `ResetMapDrawItem` calls `DispEnd` to restore it. The copy ran the first and never the second
+  on the real object. v0.6.6 makes both `SetMapDrawItem`/`ResetMapDrawItem` own calls and skips those three
+  `BackGroundUI` methods during own calls.
+- The game's item-menu world map command (`fldcmd_item._EVM_FIELD_CMD_WORLD_MAP`) sets `GUIMap.gMapMode` directly, so a
+  World tap in a town now uses mode 1 without the `CheckOpenFieldMap` check (untested; watch dungeons).
+- The v0.6.5 test log was actually still v0.6.4 (same file hash), so the `StateFlowBase.Update` fix is untested alone.
+- Tool: a small Mono.Cecil search (`IlFind`, types/calls modes) built with `mcs` against MelonLoader's Mono.Cecil.dll
+  reads the game's Assembly-CSharp.dll.
+
+## Status (v0.6.6, v0.6.4 and v0.6.5 changes included)
 - v0.6.1 and v0.6.3 logs were clean but John still lost the top screen and controller after opening the map below.
   The v0.6.3 log shows no blocked or leaked calls at all, so it cannot say which call reaches the real game.
 - v0.6.4 (source only until built): the prefab is instantiated under the copy's root inside an own call, so Awake and
