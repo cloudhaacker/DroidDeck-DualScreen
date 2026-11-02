@@ -81,6 +81,22 @@ sends `MelonLoader/Latest.log` plus screenshots.
   run; the real world map filling in the data suggests static state is set there or in `guidmap.InitGuidMap`.
 - `worldview_2.resetCameraFlag` is set by `FieldGUIMenu.Open` and by the close path of `GUIMapWorld.OnUpdate`.
 
+## v0.6.8 result and v0.6.9
+- v0.6.8 on device: the world copy reaches `UpdateSmallMap`, no warnings, no leak lines. The camera jump happens only
+  with World (the world copy is much heavier: 366 transforms against 84, a big map texture, a screen-capture fade) and
+  is probably the long frame while it builds; no camera call was found in the world startup code. John uses Lossless
+  Scaling frame generation (may amplify a long frame; test with it off).
+- v0.6.9: `Armed` starts true, so the copy builds by itself once the bridge is connected and the player is in the
+  field (the app's bridge listens all session, and the mod only connects when `BL_MAP_BRIDGE` is there, so users without
+  the app are unaffected; the app does not yet tell the mod whether Game map mode is selected). Frames are not sent
+  until `HeadlessMap.Ready` (first window re-layer plus 0.4s, or 3s), so the second screen keeps the previous picture
+  instead of showing the black first frames of a rebuilt copy.
+- Next: build both copies once and only switch which one renders (fixes the hiccup and jump; the copies share the
+  static `GUIMap.mapMode`, which `GUIMap.UpdateStatus` reads every frame, so each copy's update needs its own mode),
+  ideally while the game loads. Then the app default (needs an app build), then map features.
+- Launch options go through DroidDeck; John will try `--melonloader.hideconsole` (documented for current
+  MelonLoader, untested on 0.5.7). A loading message on the second screen can wait.
+
 ## Status (v0.6.6, v0.6.4 and v0.6.5 changes included)
 - v0.6.1 and v0.6.3 logs were clean but John still lost the top screen and controller after opening the map below.
   The v0.6.3 log shows no blocked or leaked calls at all, so it cannot say which call reaches the real game.

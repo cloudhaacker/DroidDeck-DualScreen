@@ -27,6 +27,7 @@ namespace DualScreenBridge
         private readonly List<GameObject> strays = new List<GameObject>();
         private readonly HashSet<int> preexisting = new HashSet<int>();
         private string lastSignature;
+        private float readyAt;
         private int cameraChanges;
         private int afterDumps;
 
@@ -35,6 +36,16 @@ namespace DualScreenBridge
         public float Age { get { return Time.realtimeSinceStartup - createdAt; } }
 
         public bool Active { get { return root != null; } }
+
+        // The map window builds its parts over the first second or so; frames before that are black.
+        public bool Ready
+        {
+            get
+            {
+                if (root == null) return false;
+                return (readyAt > 0f && Time.realtimeSinceStartup >= readyAt) || Age > 3f;
+            }
+        }
 
         public bool Alive { get { return root != null && instance != null; } }
 
@@ -154,6 +165,7 @@ namespace DualScreenBridge
             Key = key;
             createdAt = Time.realtimeSinceStartup;
             lastSignature = null;
+            readyAt = 0f;
             cameraChanges = 0;
             fixLogged = 0;
             strayScans = 0;
@@ -322,6 +334,7 @@ namespace DualScreenBridge
             foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
             {
                 if (t.gameObject.layer == layer) continue;
+                if (readyAt <= 0f) readyAt = Time.realtimeSinceStartup + 0.4f;
                 if (fixLogged < 12)
                 {
                     fixLogged++;

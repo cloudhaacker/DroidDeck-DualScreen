@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.8", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.9", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -19,8 +19,9 @@ namespace DualScreenBridge
         // -1 follows the game's own default, 0 world map, 1 area map.
         internal static int DesiredView = -1;
         internal static string Status = "starting";
-        // The copy only starts after the first Area or World tap, and gives up if the game keeps closing it.
-        internal static bool Armed;
+        // The copy starts by itself once the bridge is connected and the player is in the field, and gives up if the
+        // game keeps closing it; an Area or World tap arms it again.
+        internal static bool Armed = true;
         internal static int QuickDeaths;
         internal static float RetryAt;
 
@@ -408,7 +409,8 @@ namespace DualScreenBridge
                 if (Time.realtimeSinceStartup < nextFrame) continue;
                 nextFrame = Time.realtimeSinceStartup + 0.25f;
                 BridgeClient client = BridgeMod.Client;
-                if (client == null || !client.Connected || !BridgeMod.Map.Active) continue;
+                // A new copy draws black until its windows exist, so the previous picture stays on the second screen meanwhile.
+                if (client == null || !client.Connected || !BridgeMod.Map.Active || !BridgeMod.Map.Ready) continue;
                 try
                 {
                     byte[] jpg = BridgeMod.Map.Read();
