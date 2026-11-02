@@ -51,6 +51,18 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - Tool: a small Mono.Cecil search (`IlFind`, types/calls modes) built with `mcs` against MelonLoader's Mono.Cecil.dll
   reads the game's Assembly-CSharp.dll.
 
+## v0.6.6 result and v0.6.7
+- v0.6.6 confirmed on device: no leak lines, `m1 menuBg` untouched, map stays on the bottom screen, area and world both
+  work, game playable. Remaining: a brief fade to black with the slime loading icon when a view starts or switches.
+- Cause: `GUIMapTownAndDungeon.OnUpdate` and `GUIMapWorld.OnUpdate` call `mloop.GetMainScene().FadeOut`, wait on
+  `FadeCheck`, then `FadeIn` on the real main scene. v0.6.7 skips `dqCScene.FadeOut/FadeIn` during own calls and makes
+  `FadeCheck` return true so the copy's state machine does not stall.
+- `GUIMapWorld.OnUpdate` also calls `CCameraControl.applyCameraDistance` on the real scene camera; untouched so far.
+- One fix per release, tested on device each time. Order agreed with John: 1 fade (v0.6.7), 2 auto-start the map on
+  game load (set `Armed` once connected), 3 app-side default for Game map second-screen mode (`SessionActivity`,
+  `SessionPrefs`), 4 map features (icons on/off, touch pan and zoom, hide unvisited places).
+- Possible later cleanup: for the world copy the stray hider deactivates the game's shared `CapturedBGNGUI(Clone)`.
+
 ## Status (v0.6.6, v0.6.4 and v0.6.5 changes included)
 - v0.6.1 and v0.6.3 logs were clean but John still lost the top screen and controller after opening the map below.
   The v0.6.3 log shows no blocked or leaked calls at all, so it cannot say which call reaches the real game.

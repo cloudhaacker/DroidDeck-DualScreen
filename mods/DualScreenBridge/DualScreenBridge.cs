@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.6", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.7", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -80,6 +80,15 @@ namespace DualScreenBridge
                     Hook(harmony, background, "SetSolidColor", "SkipInOwnCall", null);
                 }
                 else MelonLogger.Warning("BackGroundUI not found, the copy will blank the main screen");
+                // Both map windows fade the game's main scene out and in while they open; the copy must not, and must not wait for it.
+                Type scene = GameApi.Find("dqCScene");
+                if (scene != null)
+                {
+                    Hook(harmony, scene, "FadeOut", "SkipInOwnCall", null);
+                    Hook(harmony, scene, "FadeIn", "SkipInOwnCall", null);
+                    Hook(harmony, scene, "FadeCheck", "FadeDone", null);
+                }
+                else MelonLogger.Warning("dqCScene not found, the copy will fade the main screen");
                 Type captured = GameApi.Find("CapturedBgNGUI");
                 if (captured != null)
                 {
@@ -204,6 +213,14 @@ namespace DualScreenBridge
         private static bool SkipInOwnCall()
         {
             return OwnDepth == 0;
+        }
+
+        // The copy's fade steps wait for the scene fade to finish, so a skipped fade has to report that it is done.
+        private static bool FadeDone(ref bool __result)
+        {
+            if (OwnDepth == 0) return true;
+            __result = true;
+            return false;
         }
 
         // The real map and the copy share static state, so the copy steps aside while the real one is up.
