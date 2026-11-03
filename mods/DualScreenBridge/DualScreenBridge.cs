@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.10", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.11", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -241,7 +241,7 @@ namespace DualScreenBridge
         {
             if (Map.Owns(__instance)) return;
             RealMapOpen = true;
-            Map.Destroy();
+            Map.Destroy("in-game map opened");
             MelonLogger.Msg("in-game map opened");
         }
 
@@ -274,9 +274,13 @@ namespace DualScreenBridge
         private double total;
         private double max;
 
+        // Everything the mod measured since the last frame started, to tell a game stall from a mod stall.
+        public static double FrameMs;
+
         public void Add(long startTicks)
         {
             double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - startTicks) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            FrameMs += ms;
             count++;
             total += ms;
             if (ms > max) max = ms;
@@ -302,6 +306,9 @@ namespace DualScreenBridge
         private static float freeSince = -1f;
         private static int lastMapNo = int.MinValue;
         private static bool lastFree;
+        private static bool lastBattle;
+        private static bool playerSeen;
+        private static int hitchesLogged;
         private float nextPoll;
         private float nextFrame;
         private float perfAt;
@@ -316,6 +323,14 @@ namespace DualScreenBridge
         private void Update()
         {
             BridgeMod.OwnDepth = 0;
+            float frame = Time.unscaledDeltaTime;
+            if (playerSeen && frame > 0.75f && hitchesLogged < 40)
+            {
+                hitchesLogged++;
+                MelonLogger.Msg(string.Format("frame hitch: {0:0.0}s, the mod used {1:0}ms of it; copy {2}; battle {3}; player free {4}",
+                    frame, Stat.FrameMs, BridgeMod.Map.Active ? "age " + BridgeMod.Map.Age.ToString("0.0") + "s" : "none", lastBattle, lastFree));
+            }
+            Stat.FrameMs = 0;
             BridgeClient client = BridgeMod.Client;
             if (client == null) return;
             string command;
@@ -395,7 +410,7 @@ namespace DualScreenBridge
             if (Time.realtimeSinceStartup < BridgeMod.ResumeAt) return;
             if (!BridgeMod.Armed)
             {
-                map.Destroy();
+                map.Destroy("not armed");
                 if (BridgeMod.QuickDeaths < 4) BridgeMod.Status = "tap Area or World to start";
                 return;
             }
@@ -415,14 +430,29 @@ namespace DualScreenBridge
                 BridgeMod.RetryAt = Time.realtimeSinceStartup + 3f * BridgeMod.QuickDeaths + 1f;
                 return;
             }
+            // The game tears down and rebuilds its field UI around a fight, which leaves a copy built before it blank.
+            bool battle = GameApi.InBattle();
+            if (battle != lastBattle)
+            {
+                lastBattle = battle;
+                MelonLogger.Msg("battle: " + battle);
+            }
+            if (battle)
+            {
+                map.Destroy("battle");
+                freeSince = -1f;
+                BridgeMod.Status = "battle";
+                return;
+            }
             if (!GameApi.HasPlayer())
             {
-                map.Destroy();
+                map.Destroy("no player");
                 freeSince = -1f;
                 lastMapNo = int.MinValue;
                 BridgeMod.Status = "waiting for the field";
                 return;
             }
+            playerSeen = true;
             // Building the copy while the game loads a save, changes maps or shows a message window leaves the real screen black.
             string detail;
             bool free = GameApi.PlayerFree(out detail);
@@ -439,12 +469,12 @@ namespace DualScreenBridge
             {
                 lastMapNo = mapNo;
                 freeSince = free ? now : -1f;
-                map.Destroy();
+                map.Destroy("map changed");
             }
             int mode = GameApi.AutoMode();
             if (mode == 0)
             {
-                map.Destroy();
+                map.Destroy("no map for this area");
                 BridgeMod.Status = "no map for this area";
                 return;
             }

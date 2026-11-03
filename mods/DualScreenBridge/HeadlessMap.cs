@@ -246,6 +246,12 @@ namespace DualScreenBridge
             return ImageConversion.EncodeToJPG(readback, 80);
         }
 
+        public void Destroy(string reason)
+        {
+            if (root != null) MelonLogger.Msg(string.Format("map copy removed: {0} (age {1:0.0}s)", reason, Age));
+            Destroy();
+        }
+
         public void Destroy()
         {
             diagnoseAt = 0f;

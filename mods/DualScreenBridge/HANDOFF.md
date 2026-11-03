@@ -109,6 +109,29 @@ sends `MelonLoader/Latest.log` plus screenshots.
   the stutter. Camera diagnostics now only run for the first 30s of a copy.
 - Next: read those logs, then build both copies once (hiccup/jump), app default, map features.
 
+## v0.6.10 result and v0.6.11
+- v0.6.10 on device: church saves load now. The copy is built 4s after "player free: True" and nothing hangs.
+- Cutscene (king, on leaving town): John sees roughly 10s pauses between text prompts. In both field logs the copy is
+  gone for the whole cutscene (no perf lines; removed silently by a map change, no player, or no map, which v0.6.10 did
+  not log) and the mod's own measured work stays tiny (poll max 6.7ms, tick max 5ms, capture max 61ms). The poll counter
+  shows the main thread not running Update for about half of those windows: 64 polls in 119s and 37 in 86s, against
+  14 or 15 per 15s in normal play. So the stalls overlap time with no copy and are not explained by the measured work.
+  Unresolved; the A/B test is the same cutscene and fight with Game map mode off (mod idle).
+- Battle: the copy survives the fight (perf lines and captures continue), and nothing rebuilds it. About 1.2s before the
+  fight the game removes the `m1 menuBg`, `BalloonCamera` and `ConvMapPosCamera` cameras, then renames the main camera
+  from `a main` to `a battle` (it is `a main` again by 51:19 in the second log). After the fight the bottom picture is
+  gone while the copy is still Alive; tapping Area or World, or opening the item-menu map, rebuilds it and fixes it.
+  The top-screen flash is probably the copy drawn by a freshly created camera until `Isolate` (every 1s) strips its
+  layer; unconfirmed.
+- v0.6.11: `GameApi.InBattle` (a camera named `a battle`) destroys the copy as soon as a fight starts; the normal 4s
+  settle rebuilds it afterwards, and the second screen keeps the last picture meanwhile.
+- v0.6.11 logging: `map copy removed: <reason> (age)`, `battle: true/false`, and `frame hitch: Ns, the mod used Mms of
+  it; copy ...; battle ...; player free ...` for frames over 0.75s after the field was first reached (40 lines at most).
+  A hitch line with the mod near 0ms points at the game or the device, not the mod.
+- Next: read the hitch lines. If the top screen still flashes, strip the copy's layer from every camera in `OnPreCull`
+  instead of once a second. If the copy turns out to cost frames, render its camera on demand (a few times a second,
+  when a capture is due) instead of every frame.
+
 ## Status (v0.6.6, v0.6.4 and v0.6.5 changes included)
 - v0.6.1 and v0.6.3 logs were clean but John still lost the top screen and controller after opening the map below.
   The v0.6.3 log shows no blocked or leaked calls at all, so it cannot say which call reaches the real game.

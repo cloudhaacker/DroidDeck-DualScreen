@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using UnityEngine;
 
 namespace DualScreenBridge
 {
@@ -105,6 +106,16 @@ namespace DualScreenBridge
                 detail = "unavailable: " + e.Message;
                 return true;
             }
+        }
+
+        // The game names its main camera "a battle" for the whole fight and "a main" again afterwards.
+        public static bool InBattle()
+        {
+            foreach (Camera c in Camera.allCameras)
+            {
+                if (c.name == "a battle") return true;
+            }
+            return false;
         }
 
         public static int MapNo()
