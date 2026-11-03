@@ -132,6 +132,37 @@ sends `MelonLoader/Latest.log` plus screenshots.
   instead of once a second. If the copy turns out to cost frames, render its camera on demand (a few times a second,
   when a capture is due) instead of every frame.
 
+## v0.6.11 result and v0.6.12 (trace build)
+- v0.6.11 on device: the fight fix works in the log (`battle: True`, `map copy removed: battle`, `battle: False`, copy
+  rebuilt 4s later). John's visual check of the bottom map after a fight is still to confirm.
+- The pauses are not the mod. Hitch lines in the king cutscene: 11 frames of 9 to 12.7s (about 115 of 146s) with no copy
+  and the mod at about 1ms; the fight start has four 2s frames with the copy already gone. John also saw the same
+  slowdowns and freezes with no mod DLL, in official DroidDeck, and with lower resolution and graphics quality, so not
+  the fork, not the mod and not gpu fill. The stall lengths cluster near 9.5s and 12.5s, which looks like a timed wait.
+- With the copy up there are runs of 2s frames (town and field); that part is probably the copy's per-frame render and
+  readback and is a separate, smaller cost. Idea still open: render the copy camera on demand instead of every frame.
+- John reports that near the waterfall by the next dungeon the game almost stops and speeds up again toward town.
+- v0.6.12 adds no behavior change except the `DualScreenBridge.nocopy` flag file (next to the game's exe), which keeps
+  the copy from ever being built so a run measures the game alone. It adds measurement that also runs with no bridge
+  connected (official DroidDeck, GameNative, plain Wine), once the field has been reached:
+  - `FrameTrace` (Camera.onPreCull/onPreRender/onPostRender plus Update, LateUpdate and end of frame) splits each frame
+    into update, late-update, render, after-render and present; every 3s it logs `trace:` with map number, main camera
+    position, fps, those phases, GC counts, heap, rss and swap, pressure-stall numbers, sensors and the three costliest
+    cameras. A frame over 0.75s adds its phases and GC counts to the `frame hitch:` line. When the 3s average is under
+    20 fps (at most every 10s) `trace detail:` lists the main camera target size, post effects, visible and transparent
+    renderers by shader, lights, particles and quality settings.
+  - `StallProbe` (background thread, `ProcInfo` reads the host's /proc through Z:) watches the main thread's heartbeat.
+    During a stall of a second or more it logs `stall probe:` with the main thread's state, kernel wait function and
+    syscall number every 1.5s, the busiest threads by cpu time (their names show shader compile, audio or gfx threads),
+    memory, pressure-stall and sensor numbers. A main thread asleep (S, futex or ppoll) with no busy thread means a wait or
+    timeout; a main thread running (R) or a busy thread means real work (emulation overhead, shader compile, GC).
+  - The startup `system:` line gives the gpu, graphics API, cpu, ram, vsync and quality; the `sensors:` line says whether
+    temperature, cpu clock and gpu load are readable and how many threads /proc shows (0 means /proc is not readable).
+- Parser and probe were tested locally on Linux with a fake stall (`ProcInfo.ParseStat` handles names with spaces and
+  brackets). Exited threads drop out of /proc, so their cpu is not counted. Whether Wine can read /proc, /sys and
+  the Adreno gpu files on the Thor is untested.
+- Next: read the traces from the cutscene and the waterfall in DroidDeck, then in GameNative.
+
 ## Status (v0.6.6, v0.6.4 and v0.6.5 changes included)
 - v0.6.1 and v0.6.3 logs were clean but John still lost the top screen and controller after opening the map below.
   The v0.6.3 log shows no blocked or leaked calls at all, so it cannot say which call reaches the real game.

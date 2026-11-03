@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.11", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.12", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -22,6 +22,8 @@ namespace DualScreenBridge
         // The copy starts by itself once the bridge is connected and the player is in the field, and gives up if the
         // game keeps closing it; an Area or World tap arms it again.
         internal static bool Armed = true;
+        // A file named DualScreenBridge.nocopy next to the game's exe turns the map copy off and leaves only the trace.
+        internal static bool NoCopy;
         internal static int QuickDeaths;
         internal static float RetryAt;
 
@@ -29,10 +31,21 @@ namespace DualScreenBridge
         {
             Client = new BridgeClient();
             Client.Start();
+            try
+            {
+                NoCopy = System.IO.File.Exists(System.IO.Path.Combine(System.IO.Directory.GetParent(Application.dataPath).FullName, "DualScreenBridge.nocopy"));
+            }
+            catch (Exception)
+            {
+            }
+            if (NoCopy) MelonLogger.Msg("DualScreenBridge.nocopy found: trace only, no map copy");
             PatchMap();
             GameObject host = new GameObject("DualScreenBridge");
             UnityEngine.Object.DontDestroyOnLoad(host);
             host.AddComponent<BridgePump>();
+            StallProbe.Log = delegate (string line) { MelonLogger.Msg(line); };
+            StallProbe.Start();
+            FrameTrace.Start();
             MelonLogger.Msg("started, bridge at " + BridgeClient.Host + ":" + BridgeClient.Port);
         }
 
@@ -309,6 +322,7 @@ namespace DualScreenBridge
         private static bool lastBattle;
         private static bool playerSeen;
         private static int hitchesLogged;
+        private float seenCheckAt;
         private float nextPoll;
         private float nextFrame;
         private float perfAt;
@@ -323,12 +337,24 @@ namespace DualScreenBridge
         private void Update()
         {
             BridgeMod.OwnDepth = 0;
+            StallProbe.Beat();
             float frame = Time.unscaledDeltaTime;
-            if (playerSeen && frame > 0.75f && hitchesLogged < 40)
+            string phases = FrameTrace.Frame(frame, playerSeen);
+            // The trace also runs without the bridge, so the field is detected here and not only in Poll.
+            if (!playerSeen && Time.realtimeSinceStartup >= seenCheckAt)
+            {
+                seenCheckAt = Time.realtimeSinceStartup + 1f;
+                if (GameApi.HasPlayer())
+                {
+                    playerSeen = true;
+                    StallProbe.Enabled = true;
+                }
+            }
+            if (playerSeen && frame > 0.75f && hitchesLogged < 60)
             {
                 hitchesLogged++;
-                MelonLogger.Msg(string.Format("frame hitch: {0:0.0}s, the mod used {1:0}ms of it; copy {2}; battle {3}; player free {4}",
-                    frame, Stat.FrameMs, BridgeMod.Map.Active ? "age " + BridgeMod.Map.Age.ToString("0.0") + "s" : "none", lastBattle, lastFree));
+                MelonLogger.Msg(string.Format("frame hitch: {0:0.0}s, the mod used {1:0}ms of it; copy {2}; battle {3}; player free {4}; {5}",
+                    frame, Stat.FrameMs, BridgeMod.Map.Active ? "age " + BridgeMod.Map.Age.ToString("0.0") + "s" : "none", lastBattle, lastFree, phases));
             }
             Stat.FrameMs = 0;
             BridgeClient client = BridgeMod.Client;
@@ -390,6 +416,7 @@ namespace DualScreenBridge
 
         private void LateUpdate()
         {
+            FrameTrace.Late();
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
             BridgeMod.Map.Tick();
             TickStat.Add(started);
@@ -399,6 +426,12 @@ namespace DualScreenBridge
         {
             HeadlessMap map = BridgeMod.Map;
             if (!client.Connected) return;
+            if (BridgeMod.NoCopy)
+            {
+                map.Destroy("no-copy flag");
+                BridgeMod.Status = "trace only";
+                return;
+            }
             if (BridgeMod.RealMapOpen)
             {
                 if (RealMapExists()) { BridgeMod.Status = "in-game map is open"; return; }
@@ -453,6 +486,7 @@ namespace DualScreenBridge
                 return;
             }
             playerSeen = true;
+            StallProbe.Enabled = true;
             // Building the copy while the game loads a save, changes maps or shows a message window leaves the real screen black.
             string detail;
             bool free = GameApi.PlayerFree(out detail);
@@ -504,6 +538,7 @@ namespace DualScreenBridge
             while (true)
             {
                 yield return end;
+                FrameTrace.EndOfFrame();
                 if (Time.realtimeSinceStartup < nextFrame) continue;
                 nextFrame = Time.realtimeSinceStartup + 0.25f;
                 BridgeClient client = BridgeMod.Client;
