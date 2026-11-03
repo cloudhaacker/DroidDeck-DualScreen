@@ -84,6 +84,29 @@ namespace DualScreenBridge
             }
         }
 
+        // The game's own test for opening its menu: walking, in a walking control mode, and no message window up.
+        public static bool PlayerFree(out string detail)
+        {
+            detail = "";
+            try
+            {
+                Type main = Find("dq_main");
+                if (main == null) return true;
+                bool walking = (bool)Invoke(null, main, "IsWalkLoop");
+                int mode = Convert.ToInt32(GetField(null, main, "MainCtrlMode"));
+                int message = 0;
+                object info = GetField(null, Find("dq_ctrl"), "main_ctrl_info");
+                if (info != null) message = Convert.ToInt32(GetField(info, info.GetType(), "mes_draw_sys"));
+                detail = "walking=" + walking + " mode=" + mode + " message=" + message;
+                return walking && (mode == 1 || mode == 5 || mode == 8) && (message & 1) == 0;
+            }
+            catch (Exception e)
+            {
+                detail = "unavailable: " + e.Message;
+                return true;
+            }
+        }
+
         public static int MapNo()
         {
             return Convert.ToInt32(Invoke(null, Find("dq_mapjump"), "GetMainMapNo"));

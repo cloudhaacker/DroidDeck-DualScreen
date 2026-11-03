@@ -97,6 +97,18 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - Launch options go through DroidDeck; John will try `--melonloader.hideconsole` (documented for current
   MelonLoader, untested on 0.5.7). A loading message on the second screen can wait.
 
+## v0.6.9 result and v0.6.10
+- v0.6.9 on device: auto-start broke loads. Church and inn save loads hang on a black screen with the slime icon and a
+  message that cannot be advanced; entering a town leaves the top screen black until the item-menu map is opened and
+  closed; stutter in town; slowdown on the way to field and dungeon. Cause (partly unconfirmed): the copy was built while
+  the game was loading, changing maps or showing a message window.
+- v0.6.10: the copy is only built after the game's own "player free" test (`GameApi.PlayerFree`: walking loop, control
+  mode 1/5/8, no message window) has been true for 4s on the same map; a map change destroys the copy. The mode values
+  are inferred; the log prints "player free: ..." with the values on every change. If it never turns true, check there.
+- Timing log every 15s while a copy exists: "perf ms: poll ...; tick ...; capture ..." (avg and max per piece) to find
+  the stutter. Camera diagnostics now only run for the first 30s of a copy.
+- Next: read those logs, then build both copies once (hiccup/jump), app default, map features.
+
 ## Status (v0.6.6, v0.6.4 and v0.6.5 changes included)
 - v0.6.1 and v0.6.3 logs were clean but John still lost the top screen and controller after opening the map below.
   The v0.6.3 log shows no blocked or leaked calls at all, so it cannot say which call reaches the real game.

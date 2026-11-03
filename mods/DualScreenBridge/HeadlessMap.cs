@@ -192,7 +192,7 @@ namespace DualScreenBridge
             {
                 isolateAt = Time.realtimeSinceStartup + 1f;
                 Isolate();
-                WatchCameras();
+                if (Age < 30f) WatchCameras();
             }
             if (diagnoseAt <= 0f || Time.realtimeSinceStartup < diagnoseAt) return;
             diagnoseAt = 0f;

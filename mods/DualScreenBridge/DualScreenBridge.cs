@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.9", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.10", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -267,10 +267,44 @@ namespace DualScreenBridge
         }
     }
 
+    // Milliseconds the mod itself spends per piece of work, logged every 15 seconds while a copy exists.
+    internal sealed class Stat
+    {
+        private int count;
+        private double total;
+        private double max;
+
+        public void Add(long startTicks)
+        {
+            double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - startTicks) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            count++;
+            total += ms;
+            if (ms > max) max = ms;
+        }
+
+        public string Take()
+        {
+            string text = count + "x avg " + (count > 0 ? total / count : 0).ToString("0.0") + " max " + max.ToString("0.0");
+            count = 0;
+            total = 0;
+            max = 0;
+            return text;
+        }
+    }
+
     public class BridgePump : MonoBehaviour
     {
+        private static readonly Stat PollStat = new Stat();
+        private static readonly Stat TickStat = new Stat();
+        private static readonly Stat ReadStat = new Stat();
+
+        private const float SettleSeconds = 4f;
+        private static float freeSince = -1f;
+        private static int lastMapNo = int.MinValue;
+        private static bool lastFree;
         private float nextPoll;
         private float nextFrame;
+        private float perfAt;
         private string sentTitle;
         private bool wasConnected;
 
@@ -300,6 +334,7 @@ namespace DualScreenBridge
             if (Time.realtimeSinceStartup >= nextPoll)
             {
                 nextPoll = Time.realtimeSinceStartup + 1f;
+                long started = System.Diagnostics.Stopwatch.GetTimestamp();
                 try { Poll(client); }
                 catch (Exception e)
                 {
@@ -307,6 +342,12 @@ namespace DualScreenBridge
                     MelonLogger.Warning(e.ToString());
                     nextPoll = Time.realtimeSinceStartup + 5f;
                 }
+                PollStat.Add(started);
+            }
+            if (Time.realtimeSinceStartup >= perfAt)
+            {
+                perfAt = Time.realtimeSinceStartup + 15f;
+                if (BridgeMod.Map.Active) MelonLogger.Msg("perf ms: poll " + PollStat.Take() + "; tick " + TickStat.Take() + "; capture " + ReadStat.Take());
             }
 
             bool connected = client.Connected;
@@ -334,7 +375,9 @@ namespace DualScreenBridge
 
         private void LateUpdate()
         {
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
             BridgeMod.Map.Tick();
+            TickStat.Add(started);
         }
 
         private static void Poll(BridgeClient client)
@@ -375,8 +418,28 @@ namespace DualScreenBridge
             if (!GameApi.HasPlayer())
             {
                 map.Destroy();
+                freeSince = -1f;
+                lastMapNo = int.MinValue;
                 BridgeMod.Status = "waiting for the field";
                 return;
+            }
+            // Building the copy while the game loads a save, changes maps or shows a message window leaves the real screen black.
+            string detail;
+            bool free = GameApi.PlayerFree(out detail);
+            float now = Time.realtimeSinceStartup;
+            if (free != lastFree)
+            {
+                lastFree = free;
+                MelonLogger.Msg("player free: " + free + " (" + detail + ")");
+            }
+            if (!free) freeSince = -1f;
+            else if (freeSince < 0f) freeSince = now;
+            int mapNo = GameApi.MapNo();
+            if (mapNo != lastMapNo)
+            {
+                lastMapNo = mapNo;
+                freeSince = free ? now : -1f;
+                map.Destroy();
             }
             int mode = GameApi.AutoMode();
             if (mode == 0)
@@ -389,6 +452,11 @@ namespace DualScreenBridge
             if (mode == 2 && BridgeMod.DesiredView == 0) mode = 1;
             string key = GameApi.MapNo() + "/" + mode + "/" + BridgeMod.DesiredView;
             if (map.Alive && map.Key == key) return;
+            if (freeSince < 0f || now - freeSince < SettleSeconds)
+            {
+                BridgeMod.Status = "waiting for the game to settle";
+                return;
+            }
             string error = map.Create(mode, key);
             if (error != null)
             {
@@ -413,7 +481,9 @@ namespace DualScreenBridge
                 if (client == null || !client.Connected || !BridgeMod.Map.Active || !BridgeMod.Map.Ready) continue;
                 try
                 {
+                    long started = System.Diagnostics.Stopwatch.GetTimestamp();
                     byte[] jpg = BridgeMod.Map.Read();
+                    ReadStat.Add(started);
                     if (jpg != null) client.SetFrame(jpg);
                 }
                 catch (Exception e)
