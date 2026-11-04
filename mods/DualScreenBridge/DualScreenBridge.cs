@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.12", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.13", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -299,7 +299,24 @@ namespace DualScreenBridge
             if (ms > max) max = ms;
         }
 
+        // For worker threads: not part of the main thread's frame time.
+        public void AddQuiet(long startTicks)
+        {
+            double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - startTicks) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            lock (this)
+            {
+                count++;
+                total += ms;
+                if (ms > max) max = ms;
+            }
+        }
+
         public string Take()
+        {
+            lock (this) return TakeLocked();
+        }
+
+        private string TakeLocked()
         {
             string text = count + "x avg " + (count > 0 ? total / count : 0).ToString("0.0") + " max " + max.ToString("0.0");
             count = 0;
@@ -314,6 +331,10 @@ namespace DualScreenBridge
         private static readonly Stat PollStat = new Stat();
         private static readonly Stat TickStat = new Stat();
         private static readonly Stat ReadStat = new Stat();
+        private static readonly Stat EncodeStat = new Stat();
+        private static readonly JpegEncoder Encoder = new JpegEncoder();
+        private static int encoding;
+        private static int dropped;
 
         private const float SettleSeconds = 4f;
         private static float freeSince = -1f;
@@ -388,7 +409,7 @@ namespace DualScreenBridge
             if (Time.realtimeSinceStartup >= perfAt)
             {
                 perfAt = Time.realtimeSinceStartup + 15f;
-                if (BridgeMod.Map.Active) MelonLogger.Msg("perf ms: poll " + PollStat.Take() + "; tick " + TickStat.Take() + "; capture " + ReadStat.Take());
+                if (BridgeMod.Map.Active) MelonLogger.Msg("perf ms: poll " + PollStat.Take() + "; tick " + TickStat.Take() + "; capture " + ReadStat.Take() + "; encode (worker) " + EncodeStat.Take() + "; dropped " + dropped);
             }
 
             bool connected = client.Connected;
@@ -547,9 +568,10 @@ namespace DualScreenBridge
                 try
                 {
                     long started = System.Diagnostics.Stopwatch.GetTimestamp();
-                    byte[] jpg = BridgeMod.Map.Read();
+                    int w, h;
+                    byte[] raw = BridgeMod.Map.ReadRaw(out w, out h);
                     ReadStat.Add(started);
-                    if (jpg != null) client.SetFrame(jpg);
+                    if (raw != null) EncodeAsync(raw, w, h, client);
                 }
                 catch (Exception e)
                 {
@@ -557,6 +579,34 @@ namespace DualScreenBridge
                     nextFrame = Time.realtimeSinceStartup + 5f;
                 }
             }
+        }
+
+        // The previous picture stays on the second screen while the worker is still busy with an older one.
+        private static void EncodeAsync(byte[] raw, int w, int h, BridgeClient client)
+        {
+            if (System.Threading.Interlocked.CompareExchange(ref encoding, 1, 0) != 0)
+            {
+                dropped++;
+                return;
+            }
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            {
+                try
+                {
+                    long started = System.Diagnostics.Stopwatch.GetTimestamp();
+                    byte[] jpg = Encoder.Encode(raw, w, h);
+                    EncodeStat.AddQuiet(started);
+                    client.SetFrame(jpg);
+                }
+                catch (Exception e)
+                {
+                    MelonLogger.Warning("map encode failed: " + e.Message);
+                }
+                finally
+                {
+                    System.Threading.Interlocked.Exchange(ref encoding, 0);
+                }
+            });
         }
 
         private static byte[] Placeholder()

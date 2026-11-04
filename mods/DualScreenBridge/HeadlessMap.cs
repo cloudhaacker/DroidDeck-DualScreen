@@ -246,6 +246,26 @@ namespace DualScreenBridge
             return ImageConversion.EncodeToJPG(readback, 80);
         }
 
+        public byte[] ReadRaw(out int width, out int height)
+        {
+            width = height = 0;
+            if (target == null || !target.IsCreated()) return null;
+            if (readback == null) readback = new Texture2D(target.width, target.height, TextureFormat.RGB24, false);
+            RenderTexture previous = RenderTexture.active;
+            try
+            {
+                RenderTexture.active = target;
+                readback.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0);
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+            }
+            width = target.width;
+            height = target.height;
+            return readback.GetRawTextureData();
+        }
+
         public void Destroy(string reason)
         {
             if (root != null) MelonLogger.Msg(string.Format("map copy removed: {0} (age {1:0.0}s)", reason, Age));

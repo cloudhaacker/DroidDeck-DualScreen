@@ -188,6 +188,12 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - Per-thread probe is blind on his Wine (/proc/self/task unreadable).
 - Candidates for v0.6.13: render the copy camera on demand; strip layer 31 in OnPreCull.
 
+## v0.6.13: capture off the main thread
+- John fixed the freezes with default GPU drivers, CachyOS proton, game 30 fps, screen 60 fps, no frame gen. With the map mod on he still sees micro stutters.
+- Cause found in the old logs: `capture` averaged 26 ms (max 37) every 0.25 s on the main thread (ReadPixels + EncodeToJPG).
+- v0.6.13: main thread only does ReadPixels + GetRawTextureData; a worker encodes with `JpegEncoder.cs` (baseline 4:4:4, checked against PIL). A busy worker drops the new frame. `perf ms:` line now shows `capture` (main), `encode (worker)`, `dropped`.
+- Next if stutter remains: ReadPixels is a GPU sync, so lower the capture rate or size; Relayer() allocates every frame and could be throttled.
+
 ## Next
 - Build v0.6.4 (needs the game's Managed folder and MelonLoader folder), test, and read the leak and camera lines in the log.
 - Crop the bottom-screen picture to just the map and hide the zoom, Icons Off and close buttons.
