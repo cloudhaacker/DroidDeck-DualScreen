@@ -176,6 +176,18 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - World tap inside a town uses the world map (mode 1) when `CheckOpenFieldMap` allows it (v0.6.2).
 - Icons now appear on the bottom map.
 
+## v0.6.12 trace result (John's test: voices off, 3DS options off, top 60 fps, game 30 fps, frame gen on)
+- Normal play: ~25 fps, update ~10 ms, render ~3 ms, present ~21 ms, gpu busy ~23 %, GC ~0, no memory pressure, 74-83 C.
+- Stalls (1.5-2.2 s frames) sit in the **present** phase. During them gpu busy drops to 1-5 % and cpu PSI drops too, so
+  the game is waiting on something outside it (swapchain/driver/compositor), not computing. Max stall is always about 2 s,
+  which looks like a timeout.
+- Stalls happen with the copy gone (fights) and without the mod DLL, so the mod is not the cause. Temperature is the same
+  during stalls as during smooth play, so not throttling.
+- Waterfall: a 50 s collapse (~2 fps) at world pos about (-1514,34,-1073) to (-1489,32,-1044), repeatable by position.
+- Renderer is OpenGLCore via Zink on Turnip (Vulkan). Ideas: force DX11 (DXVK) with -force-d3d11, other Turnip/Mesa, A/B frame gen.
+- Per-thread probe is blind on his Wine (/proc/self/task unreadable).
+- Candidates for v0.6.13: render the copy camera on demand; strip layer 31 in OnPreCull.
+
 ## Next
 - Build v0.6.4 (needs the game's Managed folder and MelonLoader folder), test, and read the leak and camera lines in the log.
 - Crop the bottom-screen picture to just the map and hide the zoom, Icons Off and close buttons.
