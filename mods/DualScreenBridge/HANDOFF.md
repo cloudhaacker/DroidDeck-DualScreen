@@ -199,12 +199,33 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - Every 3 s trace window still showed one frame of about 200 ms, even with no copy, so the trace itself (the /proc and /sys reads plus the log write) is the suspect.
 - v0.6.14: encoder uses a flat-table DCT and 4:2:0 chroma (about 4x faster in a local test); healthy trace windows are logged only every 30 s, and windows with average over 45 ms or a frame over 500 ms are logged in full.
 
-## Next
-- Build v0.6.4 (needs the game's Managed folder and MelonLoader folder), test, and read the leak and camera lines in the log.
-- Crop the bottom-screen picture to just the map and hide the zoom, Icons Off and close buttons.
-- Live player marker, auto town/field switching check, minimap-off check.
-- Move the mod out into its own repo for Nexus; keep this fork for the app. Rebase the branch onto the new fork `main`.
-- Add an AI-authorship note to the fork README (upstream rejects AI-authored commits).
+## Roadmap (updated after v0.6.14; John's rule: get it playable first, experiment later; one fix per release, tested on the Thor)
+Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps, screen 60 fps, no frame gen. The big freezes were the emulation stack, not the mod.
+
+### Now: make it smooth and reliable
+1. Test v0.6.14 (faster worker encode, quieter trace). Check `perf ms:` shows `encode (worker)` under about 250 ms and low `dropped`.
+2. Capture only when something changed (hero moved, map scrolled, icon toggled, touch) instead of 4 snapshots a second. Standing still then costs nothing. If stutter remains, also throttle `Relayer()` (allocates every frame) and look at the GPU readback.
+3. Pink map at fight start: the last snapshots were taken while the game was already unloading the map background; the bottom screen keeps its last picture. Hold back the last half second of snapshots, or show a clean placeholder when a fight starts.
+4. Strip layer 31 in `OnPreCull` so a new copy can never flash on the top screen (the post-fight flash).
+
+### Next: playable features
+5. Make the game map the default dual-screen option and auto-start it when a game loads.
+6. Live hero marker: confirm the game moves it inside the copy; town/field auto-switch check; minimap-off check.
+7. Crop the picture to just the map; hide the zoom, Icons Off and close buttons.
+8. Name the views the way the game does (area map, world map); read the game's own labels.
+9. Touch pan and zoom, icons on/off, hide icons for unvisited places.
+10. Poll John's Discord for wishes before v1.0.
+
+### Later: expand the mod
+- Modular options: map only, item menu, party status, battle menus on the bottom screen.
+- Move the mod to its own repo for Nexus and rebase this branch onto the new fork `main`; add an AI-authorship note to the fork README (upstream rejects AI-authored commits).
+- Backburner: hide the MelonLoader startup console or show a splash while the game loads.
+- GameNative second-screen question (not researched yet).
+
+### Experiments (only if we need more speed or want to expand)
+- A: raw pictures instead of JPEG over shared memory/files (removes the encode, keeps the GPU readback).
+- B: second Unity display. Write a tiny test mod that logs `Display.displays.Length` and tries `Display.displays[1].Activate()` with a camera on `targetDisplay = 1`. If Wine reports a second display, the game could draw the map into its own second window and the DroidDeck compositor could put that window on the bottom screen: no snapshots. Unknown whether Wine reports a second monitor.
+- C: share the GPU image directly (dma-buf / hardware buffer) between the game's compositor path and the second screen. Needs a read of the app's graphics code first.
 
 ## Tooling notes
 Game DLLs are user supplied (not in the repo). IL was read with a small Mono.Cecil dumper (`IlDump`, `IlCallers`)
