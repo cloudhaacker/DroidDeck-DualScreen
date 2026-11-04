@@ -22,6 +22,7 @@ namespace DualScreenBridge
         }
 
         private const float WindowSeconds = 3f;
+        private static float lastLogged;
         private static readonly Dictionary<int, CamStat> cams = new Dictionary<int, CamStat>();
         private static long tUpdate;
         private static long tLate;
@@ -174,8 +175,12 @@ namespace DualScreenBridge
         {
             try
             {
-                if (report && frames > 0)
+                double quickAverage = frames > 0 ? sumFrame / frames : 0;
+                // Reading /proc and /sys and writing the log cost a visible hitch under Wine, so a healthy window is logged only now and then.
+                bool trouble = quickAverage > 45.0 || maxFrame > 500.0;
+                if (report && frames > 0 && (trouble || time - lastLogged >= 30f))
                 {
+                    lastLogged = time;
                     double n = frames;
                     double average = sumFrame / n;
                     StringBuilder sb = new StringBuilder();

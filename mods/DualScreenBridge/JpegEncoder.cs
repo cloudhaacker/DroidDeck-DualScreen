@@ -23,11 +23,12 @@ namespace DualScreenBridge
             35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51, 58, 59, 52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55, 62, 63
         };
 
-        private static readonly float[,] Cos = BuildCos();
+        private static readonly float[] CosFlat = BuildCos();
 
         private readonly int[] dcLumaCode = new int[12], dcLumaLen = new int[12], dcChromaCode = new int[12], dcChromaLen = new int[12];
         private readonly int[] acLumaCode = new int[256], acLumaLen = new int[256], acChromaCode = new int[256], acChromaLen = new int[256];
-        private readonly float[] lumaScale = new float[64], chromaScale = new float[64];
+        private readonly float[] scaleY = new float[64], scaleC = new float[64], work = new float[64];
+        private readonly int[] quant = new int[64];
 
         private MemoryStream output;
         private int bitBuffer, bitCount;
@@ -40,20 +41,20 @@ namespace DualScreenBridge
             BuildCodes(AcChromaBits, AcChromaVals, acChromaCode, acChromaLen);
             for (int k = 0; k < 64; k++)
             {
-                lumaScale[Zigzag[k]] = 1f / LumaQuant[k];
-                chromaScale[Zigzag[k]] = 1f / ChromaQuant[k];
+                scaleY[Zigzag[k]] = 1f / LumaQuant[k];
+                scaleC[Zigzag[k]] = 1f / ChromaQuant[k];
             }
         }
 
-        private static float[,] BuildCos()
+        private static float[] BuildCos()
         {
-            float[,] t = new float[8, 8];
+            float[] t = new float[64];
             for (int u = 0; u < 8; u++)
             {
                 for (int x = 0; x < 8; x++)
                 {
                     double c = u == 0 ? Math.Sqrt(0.125) : 0.5;
-                    t[u, x] = (float)(c * Math.Cos((2 * x + 1) * u * Math.PI / 16));
+                    t[u * 8 + x] = (float)(c * Math.Cos((2 * x + 1) * u * Math.PI / 16));
                 }
             }
             return t;
@@ -75,7 +76,7 @@ namespace DualScreenBridge
             }
         }
 
-        // rgb is Unity's RGB24 raw texture data: bottom row first.
+        // rgb is Unity's RGB24 raw texture data: bottom row first. Chroma is halved in both directions.
         public byte[] Encode(byte[] rgb, int width, int height)
         {
             output = new MemoryStream(width * height / 8);
@@ -83,30 +84,46 @@ namespace DualScreenBridge
             bitCount = 0;
             WriteHeader(width, height);
 
-            float[] y = new float[64], cb = new float[64], cr = new float[64], tmp = new float[64];
+            float[] y = new float[64], cb = new float[64], cr = new float[64];
             int dcY = 0, dcCb = 0, dcCr = 0;
-            for (int by = 0; by < height; by += 8)
+            for (int my = 0; my < height; my += 16)
             {
-                for (int bx = 0; bx < width; bx += 8)
+                for (int mx = 0; mx < width; mx += 16)
                 {
+                    for (int q = 0; q < 4; q++)
+                    {
+                        int ox = mx + (q & 1) * 8, oy = my + (q >> 1) * 8;
+                        for (int j = 0; j < 8; j++)
+                        {
+                            int row = Math.Min(oy + j, height - 1);
+                            int src = (height - 1 - row) * width;
+                            for (int i = 0; i < 8; i++)
+                            {
+                                int p = (src + Math.Min(ox + i, width - 1)) * 3;
+                                y[j * 8 + i] = 0.299f * rgb[p] + 0.587f * rgb[p + 1] + 0.114f * rgb[p + 2] - 128f;
+                            }
+                        }
+                        dcY = Block(y, scaleY, dcY, dcLumaCode, dcLumaLen, acLumaCode, acLumaLen);
+                    }
                     for (int j = 0; j < 8; j++)
                     {
-                        int row = Math.Min(by + j, height - 1);
-                        int src = ((height - 1 - row) * width + bx) * 3;
                         for (int i = 0; i < 8; i++)
                         {
-                            int px = Math.Min(bx + i, width - 1) - bx;
-                            int p = src + px * 3;
-                            float r = rgb[p], g = rgb[p + 1], b = rgb[p + 2];
-                            int n = j * 8 + i;
-                            y[n] = 0.299f * r + 0.587f * g + 0.114f * b - 128f;
-                            cb[n] = -0.168736f * r - 0.331264f * g + 0.5f * b;
-                            cr[n] = 0.5f * r - 0.418688f * g - 0.081312f * b;
+                            float sb = 0, sr = 0;
+                            for (int d = 0; d < 4; d++)
+                            {
+                                int row = Math.Min(my + j * 2 + (d >> 1), height - 1);
+                                int p = ((height - 1 - row) * width + Math.Min(mx + i * 2 + (d & 1), width - 1)) * 3;
+                                float r = rgb[p], g = rgb[p + 1], b = rgb[p + 2];
+                                sb += -0.168736f * r - 0.331264f * g + 0.5f * b;
+                                sr += 0.5f * r - 0.418688f * g - 0.081312f * b;
+                            }
+                            cb[j * 8 + i] = sb * 0.25f;
+                            cr[j * 8 + i] = sr * 0.25f;
                         }
                     }
-                    dcY = Block(y, tmp, lumaScale, dcY, dcLumaCode, dcLumaLen, acLumaCode, acLumaLen);
-                    dcCb = Block(cb, tmp, chromaScale, dcCb, dcChromaCode, dcChromaLen, acChromaCode, acChromaLen);
-                    dcCr = Block(cr, tmp, chromaScale, dcCr, dcChromaCode, dcChromaLen, acChromaCode, acChromaLen);
+                    dcCb = Block(cb, scaleC, dcCb, dcChromaCode, dcChromaLen, acChromaCode, acChromaLen);
+                    dcCr = Block(cr, scaleC, dcCr, dcChromaCode, dcChromaLen, acChromaCode, acChromaLen);
                 }
             }
             Flush();
@@ -115,26 +132,29 @@ namespace DualScreenBridge
             return output.ToArray();
         }
 
-        private int Block(float[] data, float[] tmp, float[] scale, int prevDc, int[] dcCode, int[] dcLen, int[] acCode, int[] acLen)
+        private int Block(float[] data, float[] scale, int prevDc, int[] dcCode, int[] dcLen, int[] acCode, int[] acLen)
         {
-            for (int u = 0; u < 8; u++)
+            float[] tmp = work;
+            int[] q = quant;
+            for (int j = 0; j < 8; j++)
             {
-                for (int j = 0; j < 8; j++)
-                {
-                    float s = 0;
-                    for (int x = 0; x < 8; x++) s += data[j * 8 + x] * Cos[u, x];
-                    tmp[j * 8 + u] = s;
-                }
-            }
-            int[] q = new int[64];
-            for (int v = 0; v < 8; v++)
-            {
+                int row = j * 8;
+                float d0 = data[row], d1 = data[row + 1], d2 = data[row + 2], d3 = data[row + 3], d4 = data[row + 4], d5 = data[row + 5], d6 = data[row + 6], d7 = data[row + 7];
                 for (int u = 0; u < 8; u++)
                 {
-                    float s = 0;
-                    for (int j = 0; j < 8; j++) s += tmp[j * 8 + u] * Cos[v, j];
+                    int c = u * 8;
+                    tmp[row + u] = d0 * CosFlat[c] + d1 * CosFlat[c + 1] + d2 * CosFlat[c + 2] + d3 * CosFlat[c + 3] + d4 * CosFlat[c + 4] + d5 * CosFlat[c + 5] + d6 * CosFlat[c + 6] + d7 * CosFlat[c + 7];
+                }
+            }
+            for (int u = 0; u < 8; u++)
+            {
+                float t0 = tmp[u], t1 = tmp[8 + u], t2 = tmp[16 + u], t3 = tmp[24 + u], t4 = tmp[32 + u], t5 = tmp[40 + u], t6 = tmp[48 + u], t7 = tmp[56 + u];
+                for (int v = 0; v < 8; v++)
+                {
+                    int c = v * 8;
+                    float sum = t0 * CosFlat[c] + t1 * CosFlat[c + 1] + t2 * CosFlat[c + 2] + t3 * CosFlat[c + 3] + t4 * CosFlat[c + 4] + t5 * CosFlat[c + 5] + t6 * CosFlat[c + 6] + t7 * CosFlat[c + 7];
                     int n = v * 8 + u;
-                    q[n] = (int)Math.Round(s * scale[n]);
+                    q[n] = (int)Math.Round(sum * scale[n]);
                 }
             }
 
@@ -204,7 +224,7 @@ namespace DualScreenBridge
             Raw(0xFF, 0xD8);
             Segment(0xDB, Concat(new byte[] { 0 }, LumaQuant));
             Segment(0xDB, Concat(new byte[] { 1 }, ChromaQuant));
-            Segment(0xC0, new byte[] { 8, (byte)(h >> 8), (byte)h, (byte)(w >> 8), (byte)w, 3, 1, 0x11, 0, 2, 0x11, 1, 3, 0x11, 1 });
+            Segment(0xC0, new byte[] { 8, (byte)(h >> 8), (byte)h, (byte)(w >> 8), (byte)w, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1 });
             Segment(0xC4, Concat(new byte[] { 0x00 }, DcBits, DcVals));
             Segment(0xC4, Concat(new byte[] { 0x10 }, AcBits, AcVals));
             Segment(0xC4, Concat(new byte[] { 0x01 }, DcChromaBits, DcVals));

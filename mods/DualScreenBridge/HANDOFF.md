@@ -194,6 +194,11 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - v0.6.13: main thread only does ReadPixels + GetRawTextureData; a worker encodes with `JpegEncoder.cs` (baseline 4:4:4, checked against PIL). A busy worker drops the new frame. `perf ms:` line now shows `capture` (main), `encode (worker)`, `dropped`.
 - Next if stutter remains: ReadPixels is a GPU sync, so lower the capture rate or size; Relayer() allocates every frame and could be throttled.
 
+## v0.6.13 result and v0.6.14
+- v0.6.13 log: freezes gone (one 1.1 s hitch). Main-thread capture dropped from 26 ms to about 9 ms. The worker encode took about 390 ms under Wine, so more than half the pictures were dropped (about 2.5 fps on the second screen).
+- Every 3 s trace window still showed one frame of about 200 ms, even with no copy, so the trace itself (the /proc and /sys reads plus the log write) is the suspect.
+- v0.6.14: encoder uses a flat-table DCT and 4:2:0 chroma (about 4x faster in a local test); healthy trace windows are logged only every 30 s, and windows with average over 45 ms or a frame over 500 ms are logged in full.
+
 ## Next
 - Build v0.6.4 (needs the game's Managed folder and MelonLoader folder), test, and read the leak and camera lines in the log.
 - Crop the bottom-screen picture to just the map and hide the zoom, Icons Off and close buttons.
