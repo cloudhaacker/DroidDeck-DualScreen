@@ -135,6 +135,36 @@ namespace DualScreenBridge
             return text;
         }
 
+        // The inputs of the toolkit's FieldHud.Tick decision to hide the game's field HUD (and its minimap).
+        public static string HudInputs()
+        {
+            Type hud = Find("DQ8MR.Mods.Toolkit.FieldHud");
+            Type gate = Find("DQ8MR.Mods.Toolkit.OverlayGate");
+            Type bridge = Find("DQ8MR.Mods.Toolkit.GameBridge");
+            Type free = Find("DQ8MR.Mods.Toolkit.FreeCamera");
+            object fgm = null;
+            try { fgm = Invoke(null, Find("FieldGUIManager"), "Get"); } catch (Exception) { }
+            bool haveFgm = fgm != null && (fgm as UnityEngine.Object) != null;
+            string text = "fgm=" + haveFgm;
+            if (haveFgm)
+            {
+                text += " initControl=" + Read(() => Invoke(fgm, null, "get_IsInitControl"));
+                text += " control=" + Read(() => Invoke(fgm, null, "get_IsControl"));
+            }
+            text += " replace=" + Read(() => Invoke(GetField(null, hud, "Replace"), null, "get_On"));
+            text += " loop=" + Read(() => Invoke(null, Find("dq_main"), "get_MainLoopMode"));
+            text += " view=" + Read(() => GetField(null, Find("dq_ctrl"), "MainViewMode"));
+            text += " cursorBlocked=" + Read(() => Invoke(null, gate, "get_CursorBlocked"));
+            text += " dialogBlocked=" + Read(() => Invoke(null, gate, "get_DialogBlocked"));
+            text += " menuOpen=" + Read(() => Invoke(null, bridge, "get_MenuOpen"));
+            text += " message=" + Read(() => Invoke(null, Find("MessageWindowManager"), "IsOpened"));
+            text += " slime=" + Read(() => Invoke(null, Find("LoadingSlime"), "get_IsRender"));
+            text += " blockInput=" + Read(() => Invoke(null, Find("UICamera"), "IsBlockInput"));
+            text += " freeCam=" + Read(() => Invoke(null, free, "get_Active"));
+            text += " partyTalk=" + Read(() => Invoke(null, Find("ScriptFunc"), "IsPartyTalkMode"));
+            return text;
+        }
+
         private static string Read(Func<object> get)
         {
             try

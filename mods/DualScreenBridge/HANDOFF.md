@@ -226,6 +226,13 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - Test saves: waterfall cave and first town to waterfall, plus a church save.
 - Next: fix the minimap flash from that log, then adaptive capture rate, then strip layer 31 in `OnPreCull`.
 
+## v0.6.16 result and v0.6.17 (HUD watch build)
+- v0.6.16 on device (church save with king cutscene and two fights, waterfall cave and a fight, then a cave save): 2.5 s settle works, nothing hangs, only one hitch (1.4 s, first scene load, no copy). Copy is rebuilt about 3 s after `battle: False`. Pink filter fine (7 and 11 skipped at the dungeon fights).
+- Minimap flash is not caused by the copy: `isMiniMapOpen=True`, `Visible=False`, `_xHidden=True`, `_noMapHidden=True`, `MinimapSettling=False` are identical with and without the copy. Only `FieldHud.Hidden.Count` changes: 15 when the HUD is hidden (already 15 in the same frame the copy is created, so the toolkit hid it first), 0 at `battle: True` (FieldGUIManager gone, list cleared), 8 at `battle: False` (flash), 15 again by the time the copy exists.
+- IL (`FieldHud.Tick`): the toolkit hides the HUD under `panelList[2]` (`HideUnder`) only while `Visible` is false and `Replace.On && FieldGUIManager.IsControl && MainLoopMode==1 && MainViewMode==0 && !OverlayGate.CursorBlocked/DialogBlocked && !GameBridge.MenuOpen && !MessageWindowManager.IsOpened && !LoadingSlime.IsRender && !UICamera.IsBlockInput && !FreeCamera.Active && !ScriptFunc.IsPartyTalkMode`; otherwise it restores (`Restore`) when `Hidden.Count > 0`. So after a fight the game's HUD, minimap included, is shown until all of those hold again. Likely the same without the mod; A/B test: `DualScreenBridge.nocopy` flag file, fight, look at the top screen.
+- v0.6.17 logs `hud watch start: battle start|battle end|map N` and then every change of `hidden=N` plus each of those inputs (`GameApi.HudInputs`), polled every 0.1 s for 15 s (200 lines at most). Battle edge is detected every 0.25 s in `BridgePump.WatchHud`. No behavior change.
+- Next: read which input is false while `hidden` is 8 after a fight. If it is a game or toolkit state we cannot or should not touch, hide nothing and accept it (or hold the settle delay shorter); only act on the minimap if the mod itself causes it.
+
 ## Roadmap (updated after v0.6.14; John's rule: get it playable first, experiment later; one fix per release, tested on the Thor)
 Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps, screen 60 fps, no frame gen. The big freezes were the emulation stack, not the mod.
 
