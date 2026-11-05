@@ -248,6 +248,15 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - If the scan finds nothing, the table in the log shows what uses each layer; the next option is to share layer 31 and make `Isolate` skip `DQ8MR minimap camera`, which needs another way to keep the toolkit camera from drawing the copy on the top screen.
 - Expected on device: `layer scan: picked ...`, `map copy created: ... layer=<N>` with N below 31, the toolkit minimap camera keeps `mask=0x80000000`, and no minimap flash after fights.
 
+## v0.6.19 result and v0.6.20 (minimap closed by default)
+- v0.6.19 on device: same failure as v0.6.18, `layer scan: none free`. The scan counted every camera whose mask is not -1 as drawing a layer, but several cameras (for example `CloneCamera`, 0x7FFFFFFF) include nearly all layers, so no layer ever passed. Layers 9, 11-18, 20, 21, 23, 25-27 and 30 had 0 scene objects at the time; layer 31 held 227 to 314 objects (the toolkit's minimap parts) and one camera. A smarter filter (ignore cameras with 28 or more bits set, since `Isolate` strips them anyway) is possible but was shelved.
+- John's call: minimap on the back burner. v0.6.20 reverts `HeadlessMap` to the v0.6.17 layer code (highest unnamed layer, 31; identical to the v0.6.17 file) and closes the game's minimap once instead.
+- The toolkit's d-pad right toggle (`FieldHud.ToggleMiniMap`, `InputBindings` action 17) reflects `ButtonPanelWindow.PressMap` and `PressCloseDirectMap`: if `guidmap.isMiniMapOpen` it invokes `PressCloseDirectMap` on the HUD's button panel, else `PressMap`; it only acts when `dispObjPatturn & 8194 != 0`, and plays system SE 41.
+- `GameApi.CloseMiniMap` does the close branch (no sound). `Poll` calls it once per load, after `player free` has held for `SettleSeconds`, and retries every poll while the result is a `no ...` one (HUD not ready, or no minimap in this view). Log: `minimap close: closed | already closed | no field gui | no controller | no button panel | no minimap in this view (display pattern N) | failed: ...`. `miniMapDone` resets when the player disappears (title screen, new load).
+- Opt-out: a file named `DualScreenBridge.keepminimap` next to the game's exe leaves the minimap alone.
+- Unknown until tested: whether the game reopens the minimap after a fight or map change (`isMiniMapOpen` is static and `ButtonPanelWindow.PostCreate` reads it, so it should stay closed). The existing `battle: False` log lines print `minimap: open=...`.
+- With the minimap closed the toolkit minimap camera has nothing to draw, so the layer clash with `Isolate` no longer shows. If John reopens it with d-pad right while the copy exists it stays invisible; that is the old behavior.
+
 ## Roadmap (updated after v0.6.14; John's rule: get it playable first, experiment later; one fix per release, tested on the Thor)
 Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps, screen 60 fps, no frame gen. The big freezes were the emulation stack, not the mod.
 

@@ -9,8 +9,6 @@ namespace DualScreenBridge
     internal sealed class HeadlessMap
     {
         private const int FirstLayer = 8;
-        private const int ToolkitLayer = 31;
-        private static float nextLayerScan;
         private const float FarAway = 20000f;
         private GameObject root;
         private GameObject cameraObject;
@@ -433,37 +431,12 @@ namespace DualScreenBridge
             }
         }
 
-        // Layer 31 is the only unnamed layer and belongs to the toolkit's minimap camera, which goes blank if Isolate strips
-        // that bit from it, so the copy takes a layer with no scene object on it that no camera draws explicitly.
         private static int FreeLayer()
         {
-            float now = Time.realtimeSinceStartup;
-            if (now < nextLayerScan) return -1;
-            int[] objects = new int[32];
-            foreach (GameObject go in Resources.FindObjectsOfTypeAll<GameObject>())
+            for (int i = 31; i >= FirstLayer; i--)
             {
-                if (go.scene.IsValid()) objects[go.layer]++;
+                if (string.IsNullOrEmpty(LayerMask.LayerToName(i))) return i;
             }
-            int[] drawn = new int[32];
-            foreach (Camera c in Resources.FindObjectsOfTypeAll<Camera>())
-            {
-                int mask = c.cullingMask;
-                if (mask == -1) continue;
-                for (int i = 0; i < 32; i++)
-                {
-                    if ((mask & (1 << i)) != 0) drawn[i]++;
-                }
-            }
-            for (int i = ToolkitLayer - 1; i >= FirstLayer; i--)
-            {
-                if (objects[i] != 0 || drawn[i] != 0) continue;
-                MelonLogger.Msg("layer scan: picked " + i + " '" + LayerMask.LayerToName(i) + "'");
-                return i;
-            }
-            nextLayerScan = now + 15f;
-            System.Text.StringBuilder sb = new System.Text.StringBuilder("layer scan: none free (layer:name:objects:cameras)");
-            for (int i = FirstLayer; i < 32; i++) sb.Append(' ').Append(i).Append(':').Append(LayerMask.LayerToName(i)).Append(':').Append(objects[i]).Append(':').Append(drawn[i]);
-            MelonLogger.Msg(sb.ToString());
             return -1;
         }
     }
