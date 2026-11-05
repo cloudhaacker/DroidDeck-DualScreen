@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.14", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.15", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -335,6 +335,9 @@ namespace DualScreenBridge
         private static readonly JpegEncoder Encoder = new JpegEncoder();
         private static int encoding;
         private static int dropped;
+        private static int pinkSkipped;
+        private static int pinkLogged;
+        private static string lastMean = "-";
 
         private const float SettleSeconds = 4f;
         private static float freeSince = -1f;
@@ -409,7 +412,7 @@ namespace DualScreenBridge
             if (Time.realtimeSinceStartup >= perfAt)
             {
                 perfAt = Time.realtimeSinceStartup + 15f;
-                if (BridgeMod.Map.Active) MelonLogger.Msg("perf ms: poll " + PollStat.Take() + "; tick " + TickStat.Take() + "; capture " + ReadStat.Take() + "; encode (worker) " + EncodeStat.Take() + "; dropped " + dropped);
+                if (BridgeMod.Map.Active) MelonLogger.Msg("perf ms: poll " + PollStat.Take() + "; tick " + TickStat.Take() + "; capture " + ReadStat.Take() + "; encode (worker) " + EncodeStat.Take() + "; dropped " + dropped + "; pink skipped " + pinkSkipped);
             }
 
             bool connected = client.Connected;
@@ -515,7 +518,7 @@ namespace DualScreenBridge
             if (free != lastFree)
             {
                 lastFree = free;
-                MelonLogger.Msg("player free: " + free + " (" + detail + ")");
+                MelonLogger.Msg("player free: " + free + " (" + detail + "); last map picture rgb " + lastMean);
             }
             if (!free) freeSince = -1f;
             else if (freeSince < 0f) freeSince = now;
@@ -594,6 +597,20 @@ namespace DualScreenBridge
                 try
                 {
                     long started = System.Diagnostics.Stopwatch.GetTimestamp();
+                    // The game unloads the map's background as a fight starts, which draws pink; keep the last good picture instead.
+                    bool pink;
+                    string mean = Sample(raw, w, h, out pink);
+                    lastMean = mean;
+                    if (pink)
+                    {
+                        pinkSkipped++;
+                        if (pinkLogged < 12)
+                        {
+                            pinkLogged++;
+                            MelonLogger.Msg("skipped a pink map picture (mean rgb " + mean + ")");
+                        }
+                        return;
+                    }
                     byte[] jpg = Encoder.Encode(raw, w, h);
                     EncodeStat.AddQuiet(started);
                     client.SetFrame(jpg);
@@ -607,6 +624,28 @@ namespace DualScreenBridge
                     System.Threading.Interlocked.Exchange(ref encoding, 0);
                 }
             });
+        }
+
+        // Samples a grid of pixels of Unity's bottom-up RGB24 data: mean colour, and whether a large share is magenta.
+        private static string Sample(byte[] raw, int w, int h, out bool pink)
+        {
+            long r = 0, g = 0, b = 0;
+            int n = 0, magenta = 0;
+            for (int y = 4; y < h; y += 30)
+            {
+                for (int x = 4; x < w; x += 30)
+                {
+                    int p = (y * w + x) * 3;
+                    int pr = raw[p], pg = raw[p + 1], pb = raw[p + 2];
+                    r += pr;
+                    g += pg;
+                    b += pb;
+                    n++;
+                    if (pr > 180 && pb > 150 && pr - pg > 90 && pb - pg > 60) magenta++;
+                }
+            }
+            pink = n > 0 && magenta * 100 / n >= 20;
+            return n > 0 ? (r / n) + "," + (g / n) + "," + (b / n) + " magenta " + (magenta * 100 / n) + "%" : "-";
         }
 
         private static byte[] Placeholder()

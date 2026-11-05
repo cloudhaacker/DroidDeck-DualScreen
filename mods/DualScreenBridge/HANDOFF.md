@@ -204,6 +204,12 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - Only the Latest.log was created this time (no MelonLoader folder log); not a problem.
 - Remaining cost is the 9 ms main-thread readback four times a second: roadmap item 2 (capture less when nothing changes).
 
+## v0.6.14 second result and v0.6.15
+- John: still smooth. Pink map at every fight in the waterfall dungeon (town/dungeon map, mode 2), not on the world/field map; settles after the fight.
+- Log timeline (every fight): `player free: False (walking=False mode=1)` then `camera state changed` about 1 s before `battle: True`; the copy is removed at `battle: True`. So the copy keeps drawing for up to a second while the game starts the encounter, and the bottom screen shows the last (pink) picture.
+- v0.6.15: the worker samples a grid of pixels; if 20 % or more is magenta the picture is not sent (the last good one stays) and `skipped a pink map picture (mean rgb ...)` is logged (12 at most). `perf ms:` shows `pink skipped`. Each `player free:` line shows the mean colour of the last picture, to tune the test if pink slips through.
+- John also finds the 4 s settle delay long now that the game is faster; candidate for the next release (try 2.5 s).
+
 ## Roadmap (updated after v0.6.14; John's rule: get it playable first, experiment later; one fix per release, tested on the Thor)
 Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps, screen 60 fps, no frame gen. The big freezes were the emulation stack, not the mod.
 
