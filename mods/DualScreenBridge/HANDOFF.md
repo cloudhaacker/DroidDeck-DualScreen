@@ -241,6 +241,13 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - HUD watch logging from v0.6.17 is still in (200 lines at most); drop it once the flash is confirmed gone.
 - Next: adaptive capture rate (capture only when something changed), then the roadmap features.
 
+## v0.6.18 result and v0.6.19
+- v0.6.18 on device: broke the mod. Every create attempt logged `map: no free layer` and nothing showed on the second screen. Layers 8 to 30 are all named or used by the game; 31 is the only unnamed layer, which is why both the toolkit and the copy took it. Assuming 30 and below were free was wrong and was not checked against the game's layer names.
+- v0.6.19: `HeadlessMap.FreeLayer` scans once per copy (retry at most every 15 s): counts scene `GameObject`s per layer and cameras that explicitly draw each layer (mask not -1), and picks the highest layer from 30 down with no objects and no explicit camera. Layer 31 is never used by the copy. Logs `layer scan: picked N 'name'`, or `layer scan: none free (layer:name:objects:cameras ...)` with a table for 8 to 31.
+- Risk: the game may put objects on the picked layer later; `Isolate` would then hide them from cameras that draw it while the copy exists. Battle destroys the copy anyway. Check the bottom picture for stray objects.
+- If the scan finds nothing, the table in the log shows what uses each layer; the next option is to share layer 31 and make `Isolate` skip `DQ8MR minimap camera`, which needs another way to keep the toolkit camera from drawing the copy on the top screen.
+- Expected on device: `layer scan: picked ...`, `map copy created: ... layer=<N>` with N below 31, the toolkit minimap camera keeps `mask=0x80000000`, and no minimap flash after fights.
+
 ## Roadmap (updated after v0.6.14; John's rule: get it playable first, experiment later; one fix per release, tested on the Thor)
 Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps, screen 60 fps, no frame gen. The big freezes were the emulation stack, not the mod.
 
