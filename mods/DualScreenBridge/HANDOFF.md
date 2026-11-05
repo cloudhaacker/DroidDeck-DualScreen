@@ -25,7 +25,7 @@ sends `MelonLoader/Latest.log` plus screenshots.
 4. Use `CapturedBgNGUI` (captures the menu camera and ORs a layer into its culling mask): its Enable/Disable/
    set_RenderCamera/SetLocalPosition are no-ops during own calls, the menu camera mask is held to its original value
    while the copy exists, and the stray captured-background object is hidden.
-5. Leave any part on the game's menu layer 8: all parts are moved back to layer 31 just before each camera culls.
+5. Leave any part on the game's menu layer 8: all parts are moved back to the copy's own layer (30 or lower since v0.6.18; 31 belongs to the toolkit minimap camera) just before each camera culls.
 6. Rebuild itself in a loop: it starts only after an Area or World tap and backs off after 4 quick closes.
 
 ## v0.6.4 log findings (first log with leak and camera logging)
@@ -232,6 +232,14 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - IL (`FieldHud.Tick`): the toolkit hides the HUD under `panelList[2]` (`HideUnder`) only while `Visible` is false and `Replace.On && FieldGUIManager.IsControl && MainLoopMode==1 && MainViewMode==0 && !OverlayGate.CursorBlocked/DialogBlocked && !GameBridge.MenuOpen && !MessageWindowManager.IsOpened && !LoadingSlime.IsRender && !UICamera.IsBlockInput && !FreeCamera.Active && !ScriptFunc.IsPartyTalkMode`; otherwise it restores (`Restore`) when `Hidden.Count > 0`. So after a fight the game's HUD, minimap included, is shown until all of those hold again. Likely the same without the mod; A/B test: `DualScreenBridge.nocopy` flag file, fight, look at the top screen.
 - v0.6.17 logs `hud watch start: battle start|battle end|map N` and then every change of `hidden=N` plus each of those inputs (`GameApi.HudInputs`), polled every 0.1 s for 15 s (200 lines at most). Battle edge is detected every 0.25 s in `BridgePump.WatchHud`. No behavior change.
 - Next: read which input is false while `hidden` is 8 after a fight. If it is a game or toolkit state we cannot or should not touch, hide nothing and accept it (or hold the settle delay shorter); only act on the minimap if the mod itself causes it.
+
+## v0.6.17 result and v0.6.18 (minimap fix)
+- Correction: the v0.6.16 conclusion that the copy does not cause the minimap flash was wrong. John ran v0.6.17 with and without the `DualScreenBridge.nocopy` flag: with no copy the game's minimap on the top screen is never removed. `FieldHud.Hidden` counts (15) and every `HudInputs` value are the same in both runs, so they say nothing about the minimap.
+- Cause: the toolkit draws the minimap with its own camera `DQ8MR minimap camera` (`FieldHud.EnsureOwnCamera`, depth 35.99, culling mask `1 << _ownLayer`). `FieldHud.FindFreeLayer` and `HeadlessMap.FreeLayer` both took the highest unnamed layer, 31. `HeadlessMap.Isolate` then cleared bit 31 from every other camera, so the minimap camera's mask became 0x0 (visible in the `before camera` dump). After a fight the game rebuilds its HUD and the toolkit builds a fresh camera with a correct mask, which shows the minimap until the next copy is created and `Isolate` strips it again (about 3 s). Same after a map change.
+- v0.6.18: `FreeLayer` starts at 30 and skips layers any camera explicitly draws (mask not -1), mirroring the toolkit's rule. Layer 31 is never touched. Expected in the log: `map copy created: ... layer=30`, and `DQ8MR minimap camera` keeps `mask=0x80000000` in the camera dumps.
+- Not checked: whether the toolkit's minimap object (parked on its layer) was also being drawn into the bottom picture; look at the bottom screen for a stray minimap graphic.
+- HUD watch logging from v0.6.17 is still in (200 lines at most); drop it once the flash is confirmed gone.
+- Next: adaptive capture rate (capture only when something changed), then the roadmap features.
 
 ## Roadmap (updated after v0.6.14; John's rule: get it playable first, experiment later; one fix per release, tested on the Thor)
 Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps, screen 60 fps, no frame gen. The big freezes were the emulation stack, not the mod.

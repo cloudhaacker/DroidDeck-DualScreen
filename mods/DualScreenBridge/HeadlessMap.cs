@@ -9,6 +9,7 @@ namespace DualScreenBridge
     internal sealed class HeadlessMap
     {
         private const int FirstLayer = 8;
+        private const int ToolkitLayer = 31;
         private const float FarAway = 20000f;
         private GameObject root;
         private GameObject cameraObject;
@@ -431,13 +432,25 @@ namespace DualScreenBridge
             }
         }
 
+        // The toolkit's minimap camera draws the highest free layer (31) and goes blank if Isolate strips that bit from it.
         private static int FreeLayer()
         {
-            for (int i = 31; i >= FirstLayer; i--)
+            for (int i = ToolkitLayer - 1; i >= FirstLayer; i--)
             {
-                if (string.IsNullOrEmpty(LayerMask.LayerToName(i))) return i;
+                if (!string.IsNullOrEmpty(LayerMask.LayerToName(i)) || DrawnByCamera(i)) continue;
+                return i;
             }
             return -1;
+        }
+
+        private static bool DrawnByCamera(int index)
+        {
+            int bit = 1 << index;
+            foreach (Camera c in Resources.FindObjectsOfTypeAll<Camera>())
+            {
+                if (c.cullingMask != -1 && (c.cullingMask & bit) != 0) return true;
+            }
+            return false;
         }
     }
 }
