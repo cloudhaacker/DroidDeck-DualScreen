@@ -210,6 +210,14 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - v0.6.15: the worker samples a grid of pixels; if 20 % or more is magenta the picture is not sent (the last good one stays) and `skipped a pink map picture (mean rgb ...)` is logged (12 at most). `perf ms:` shows `pink skipped`. Each `player free:` line shows the mean colour of the last picture, to tune the test if pink slips through.
 - John also finds the 4 s settle delay long now that the game is faster; candidate for the next release (try 2.5 s).
 
+## v0.6.15 result (two saves: waterfall cave "a", first town to waterfall "b")
+- John: both run well, no pink map seen. Log: `skipped a pink map picture (mean rgb 144,10,142 magenta 52%)` fires 2-8 times at each dungeon (town/dungeon map) fight, starting when the camera state changes, before `player free: False`; field-map fights show no pink. Filter works. `perf ms:`: capture avg 9 ms main thread, encode (worker) 100-142 ms, dropped 0.
+- Only first scene loads hitch (0.8-1.6 s, no copy): the game loading.
+- New small bug: after a fight the game's own minimap comes back on the top screen until the copy is rebuilt (4 s settle), then it disappears. The mod has no minimap code, so something the game does when the copy exists hides it.
+- IL notes (Assembly-CSharp): in-game minimap is `ButtonPanelWindow.miniMap` (`MiniMap`, tweened, static `guidmap.isMiniMapOpen`); the DQ8MR toolkit class `DQ8MR.Mods.Toolkit.FieldHud` (Tick/LateTick/ToggleMiniMap/HitMinimap, `Hidden` list, `Visible`) also manages it. Not yet found what hides it while the copy exists.
+- Plan, one release at a time: (1) v0.6.16 settle delay 4 s -> about 2.5 s plus a log line with `guidmap.isMiniMapOpen` and `FieldHud.Visible` at copy create, copy remove and battle end, to find the minimap trigger; (2) fix the minimap flash; (3) adaptive capture rate (roadmap item 2); (4) strip layer 31 in OnPreCull; then the playable features list below.
+- IL tools: `tools/IlDump.cs` (dump a method), `tools/IlFind.cs` (find types/references); build with mcs against MelonLoader's Mono.Cecil.dll.
+
 ## Roadmap (updated after v0.6.14; John's rule: get it playable first, experiment later; one fix per release, tested on the Thor)
 Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps, screen 60 fps, no frame gen. The big freezes were the emulation stack, not the mod.
 
