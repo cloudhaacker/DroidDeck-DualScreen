@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.15", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.16", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -339,7 +339,7 @@ namespace DualScreenBridge
         private static int pinkLogged;
         private static string lastMean = "-";
 
-        private const float SettleSeconds = 4f;
+        private const float SettleSeconds = 2.5f;
         private static float freeSince = -1f;
         private static int lastMapNo = int.MinValue;
         private static bool lastFree;
@@ -492,7 +492,7 @@ namespace DualScreenBridge
             if (battle != lastBattle)
             {
                 lastBattle = battle;
-                MelonLogger.Msg("battle: " + battle);
+                MelonLogger.Msg("battle: " + battle + "; " + GameApi.MiniMapState());
             }
             if (battle)
             {
@@ -553,7 +553,7 @@ namespace DualScreenBridge
                 return;
             }
             BridgeMod.Status = mode == 2 ? "town or dungeon map" : (BridgeMod.DesiredView == 1 ? "area map" : (BridgeMod.DesiredView == 0 ? "world map" : "field map"));
-            MelonLogger.Msg("showing: " + BridgeMod.Status);
+            MelonLogger.Msg("showing: " + BridgeMod.Status + "; " + GameApi.MiniMapState());
         }
 
         private IEnumerator CaptureLoop()

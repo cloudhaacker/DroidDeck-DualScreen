@@ -118,6 +118,36 @@ namespace DualScreenBridge
             return false;
         }
 
+        public static string MiniMapState()
+        {
+            Type hud = Find("DQ8MR.Mods.Toolkit.FieldHud");
+            string text = "minimap: open=" + Read(() => GetField(null, Find("guidmap"), "isMiniMapOpen"));
+            if (hud == null) return text + " (no FieldHud)";
+            text += " visible=" + Read(() => GetField(null, hud, "Visible"));
+            text += " xHidden=" + Read(() => GetField(null, hud, "_xHidden"));
+            text += " noMapHidden=" + Read(() => GetField(null, hud, "_noMapHidden"));
+            text += " settling=" + Read(() => Invoke(null, hud, "get_MinimapSettling"));
+            text += " hiddenObjects=" + Read(() =>
+            {
+                System.Collections.ICollection list = GetField(null, hud, "Hidden") as System.Collections.ICollection;
+                return list == null ? null : (object)list.Count;
+            });
+            return text;
+        }
+
+        private static string Read(Func<object> get)
+        {
+            try
+            {
+                object value = get();
+                return value == null ? "null" : value.ToString();
+            }
+            catch (Exception e)
+            {
+                return "?(" + e.GetType().Name + ")";
+            }
+        }
+
         public static int MapNo()
         {
             return Convert.ToInt32(Invoke(null, Find("dq_mapjump"), "GetMainMapNo"));

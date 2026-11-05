@@ -218,6 +218,14 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - Plan, one release at a time: (1) v0.6.16 settle delay 4 s -> about 2.5 s plus a log line with `guidmap.isMiniMapOpen` and `FieldHud.Visible` at copy create, copy remove and battle end, to find the minimap trigger; (2) fix the minimap flash; (3) adaptive capture rate (roadmap item 2); (4) strip layer 31 in OnPreCull; then the playable features list below.
 - IL tools: `tools/IlDump.cs` (dump a method), `tools/IlFind.cs` (find types/references); build with mcs against MelonLoader's Mono.Cecil.dll.
 
+## v0.6.16: shorter settle and minimap logging (built, untested on device)
+- `SettleSeconds` 4 -> 2.5. No other behavior change.
+- `GameApi.MiniMapState()` is appended to three log lines: `showing: ...` (copy created), `map copy removed: ...`, and `battle: True/False`. It prints `guidmap.isMiniMapOpen` and the toolkit `FieldHud` statics `Visible`, `_xHidden`, `_noMapHidden`, `MinimapSettling` and `Hidden.Count`. Each value falls back to `?(ExceptionName)` if reflection fails.
+- `FieldHud` also has `HitMinimap`, `ToggleMiniMap`, `MinimapCorner`; `_noMapHidden` and `MinimapSettling` are the first suspects for the post-fight flash.
+- To read: compare the line at `battle: False` (flash visible) with the one at `showing:` (flash gone). The field that flips there is the trigger. Also check `player free` and `showing` timing with 2.5 s: any hang on save load or in the king cutscene means the delay is too short.
+- Test saves: waterfall cave and first town to waterfall, plus a church save.
+- Next: fix the minimap flash from that log, then adaptive capture rate, then strip layer 31 in `OnPreCull`.
+
 ## Roadmap (updated after v0.6.14; John's rule: get it playable first, experiment later; one fix per release, tested on the Thor)
 Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps, screen 60 fps, no frame gen. The big freezes were the emulation stack, not the mod.
 

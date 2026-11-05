@@ -268,7 +268,7 @@ namespace DualScreenBridge
 
         public void Destroy(string reason)
         {
-            if (root != null) MelonLogger.Msg(string.Format("map copy removed: {0} (age {1:0.0}s)", reason, Age));
+            if (root != null) MelonLogger.Msg(string.Format("map copy removed: {0} (age {1:0.0}s); {2}", reason, Age, GameApi.MiniMapState()));
             Destroy();
         }
 
