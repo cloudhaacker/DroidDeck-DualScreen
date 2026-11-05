@@ -199,6 +199,11 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - Every 3 s trace window still showed one frame of about 200 ms, even with no copy, so the trace itself (the /proc and /sys reads plus the log write) is the suspect.
 - v0.6.14: encoder uses a flat-table DCT and 4:2:0 chroma (about 4x faster in a local test); healthy trace windows are logged only every 30 s, and windows with average over 45 ms or a frame over 500 ms are logged in full.
 
+## v0.6.14 result
+- John: plays very smoothly. Log: no hitch over 0.75 s after the first scene load (copy none); fights start without a stall; fps 26-29 (game capped at 30); `capture` on the main thread avg 9 ms (max 15-30) every 0.25 s; `encode (worker)` avg about 103 ms (max 172), `dropped` 0, so the bottom screen gets all 4 pictures a second.
+- Only the Latest.log was created this time (no MelonLoader folder log); not a problem.
+- Remaining cost is the 9 ms main-thread readback four times a second: roadmap item 2 (capture less when nothing changes).
+
 ## Roadmap (updated after v0.6.14; John's rule: get it playable first, experiment later; one fix per release, tested on the Thor)
 Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps, screen 60 fps, no frame gen. The big freezes were the emulation stack, not the mod.
 
