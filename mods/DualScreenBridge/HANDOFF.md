@@ -265,6 +265,11 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - Expected on device: no minimap on the top screen at any time (including right after fights and in the cave), the cave map shows the cave, layer=31 in `map copy created`, `DQ8MR minimap camera` mask 0x0 in camera dumps.
 - Open: the game's d-pad right toggle still changes `isMiniMapOpen`; if John closes it by hand the cave-data problem returns. HUD watch logging is still in.
 
+## v0.6.21 result and v0.6.22 (cleanup)
+- v0.6.21 on device: minimap never seen on the top screen, correct maps in Farebury, the field and the waterfall cave. `DQ8MR minimap camera` kept mask 0x0, `isMiniMapOpen` stayed True. Flash fixed.
+- v0.6.22: removed the HUD watch (`WatchHud`, `StartHudWatch`, `GameApi.HudInputs` and their fields). `GameApi.MiniMapState` stays; it is still appended to the `showing:`, `map copy removed:` and `battle:` lines. No behavior change.
+- Next, in order: capture only when the picture changed (stutters), default the Game map option on and auto-start it, then icons on/off, touch pan and zoom, hide icons for unvisited places.
+
 ## Roadmap (updated after v0.6.14; John's rule: get it playable first, experiment later; one fix per release, tested on the Thor)
 Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps, screen 60 fps, no frame gen. The big freezes were the emulation stack, not the mod.
 

@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.21", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.22", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -351,12 +351,6 @@ namespace DualScreenBridge
         private static bool lastBattle;
         private static bool playerSeen;
         private static int hitchesLogged;
-        private static float hudWatchUntil;
-        private static string hudWatchLast = "";
-        private static int hudWatchLogged;
-        private static bool hudWatchBattle;
-        private float battleCheckAt;
-        private float hudWatchAt;
         private float seenCheckAt;
         private float nextPoll;
         private float nextFrame;
@@ -392,7 +386,6 @@ namespace DualScreenBridge
                     frame, Stat.FrameMs, BridgeMod.Map.Active ? "age " + BridgeMod.Map.Age.ToString("0.0") + "s" : "none", lastBattle, lastFree, phases));
             }
             Stat.FrameMs = 0;
-            WatchHud();
             BridgeClient client = BridgeMod.Client;
             if (client == null) return;
             string command;
@@ -437,44 +430,6 @@ namespace DualScreenBridge
                 sentTitle = title;
                 client.SetTitle(title);
             }
-        }
-
-        // For 15 s after a fight ends, a map change or a new copy, logs every change of the game's HUD-hiding inputs.
-        private void WatchHud()
-        {
-            float now = Time.realtimeSinceStartup;
-            if (playerSeen && now >= battleCheckAt)
-            {
-                battleCheckAt = now + 0.25f;
-                bool inBattle = GameApi.InBattle();
-                if (inBattle != hudWatchBattle)
-                {
-                    hudWatchBattle = inBattle;
-                    StartHudWatch(inBattle ? "battle start" : "battle end");
-                }
-            }
-            if (now > hudWatchUntil || now < hudWatchAt || hudWatchLogged >= 200) return;
-            hudWatchAt = now + 0.1f;
-            string hidden = "?";
-            Type hud = GameApi.Find("DQ8MR.Mods.Toolkit.FieldHud");
-            try
-            {
-                System.Collections.ICollection list = GameApi.GetField(null, hud, "Hidden") as System.Collections.ICollection;
-                if (list != null) hidden = list.Count.ToString();
-            }
-            catch (Exception) { }
-            string state = "hidden=" + hidden + " " + GameApi.HudInputs();
-            if (state == hudWatchLast) return;
-            hudWatchLast = state;
-            hudWatchLogged++;
-            MelonLogger.Msg("hud watch: " + state);
-        }
-
-        private static void StartHudWatch(string why)
-        {
-            hudWatchUntil = Time.realtimeSinceStartup + 15f;
-            hudWatchLast = "";
-            MelonLogger.Msg("hud watch start: " + why);
         }
 
         private static bool RealMapExists()
@@ -576,7 +531,6 @@ namespace DualScreenBridge
             if (mapNo != lastMapNo)
             {
                 lastMapNo = mapNo;
-                StartHudWatch("map " + mapNo);
                 freeSince = free ? now : -1f;
                 map.Destroy("map changed");
             }
