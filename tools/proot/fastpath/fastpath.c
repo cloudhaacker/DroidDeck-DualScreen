@@ -141,11 +141,13 @@ static int traced_by_match(const char *key) {
   return found;
 }
 
-static long init_sys(long nr, long a, long b, long c) {
+static long init_sys4(long nr, long a, long b, long c, long d) {
   static long (*real_syscall)(long, ...);
   if (!real_syscall) real_syscall = (long (*)(long, ...))dlsym(RTLD_NEXT, "syscall");
-  return real_syscall(nr, a, b, c);
+  return real_syscall(nr, a, b, c, d);
 }
+
+static long init_sys(long nr, long a, long b, long c) { return init_sys4(nr, a, b, c, 0); }
 
 static int program_32bit(const char *prog, int scripts) {
   char head[256];
@@ -504,7 +506,7 @@ static long own_exe(char *g) {
     memcpy(g, exe_text, n + 1);
     return n;
   }
-  long t = syscall(SYS_readlinkat, AT_FDCWD, "/proc/self/exe", g, PATH_MAX - 1);
+  long t = init_sys4(SYS_readlinkat, AT_FDCWD, (long)"/proc/self/exe", (long)g, PATH_MAX - 1);
   if (t <= 0 || t >= PATH_MAX - 1) return FP_SLOW;
   g[t] = 0;
   static pthread_mutex_t exe_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -911,7 +913,6 @@ static void fill_statx(struct statx *out, const struct stat *st) {
   out->stx_dev_minor = dev_minor(st->st_dev);
 }
 
-/* Emulate statx on older kernels < 4.11 */
 static long statx_call(int dirfd, const char *path, int flags, unsigned mask, struct statx *out) {
   struct stat st;
   long rs;
@@ -1372,7 +1373,6 @@ int inotify_add_watch(int fd, const char *path, uint32_t mask) {
 }
 
 
-/* The kernel reports a socket named through /proc/self/fd/N/<name> under that name: map it back, per socket. */
 enum { LONG_SELF, LONG_PEER };
 static struct { unsigned long ino; int kind; char name[sizeof ((struct sockaddr_un *)0)->sun_path]; char guest[sizeof ((struct sockaddr_un *)0)->sun_path]; } long_names[64];
 static unsigned long_next;
@@ -1451,7 +1451,6 @@ static long socket_address(const struct sockaddr *addr, socklen_t len, int follo
   memset(out, 0, sizeof *out);
   out->sun_family = AF_UNIX;
   if (hlen >= room) {
-    /* proot would bind it to a temporary name the fast path cannot see: name it through its directory. */
     char *slash = strrchr(r.host, '/');
     if (!slash || slash == r.host) return FP_SLOW;
     *slash = 0;
