@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.22", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.23", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -340,7 +340,13 @@ namespace DualScreenBridge
         private static readonly JpegEncoder Encoder = new JpegEncoder();
         private static int encoding;
         private static int dropped;
+        private const float MovingInterval = 0.25f;
+        private const float StillInterval = 0.5f;
+        private const int StillReads = 3;
         private static int pinkSkipped;
+        private static int unchangedSkipped;
+        private static long lastSentHash;
+        private static volatile int unchangedRuns;
         private static int pinkLogged;
         private static string lastMean = "-";
 
@@ -392,6 +398,7 @@ namespace DualScreenBridge
             while (client.TryTakeCommand(out command))
             {
                 MelonLogger.Msg("command: " + command);
+                unchangedRuns = 0;
                 if (command == "view:area" || command == "view:world")
                 {
                     BridgeMod.DesiredView = command == "view:area" ? 1 : 0;
@@ -417,11 +424,12 @@ namespace DualScreenBridge
             if (Time.realtimeSinceStartup >= perfAt)
             {
                 perfAt = Time.realtimeSinceStartup + 15f;
-                if (BridgeMod.Map.Active) MelonLogger.Msg("perf ms: poll " + PollStat.Take() + "; tick " + TickStat.Take() + "; capture " + ReadStat.Take() + "; encode (worker) " + EncodeStat.Take() + "; dropped " + dropped + "; pink skipped " + pinkSkipped);
+                if (BridgeMod.Map.Active) MelonLogger.Msg("perf ms: poll " + PollStat.Take() + "; tick " + TickStat.Take() + "; capture " + ReadStat.Take() + "; encode (worker) " + EncodeStat.Take() + "; dropped " + dropped + "; pink skipped " + pinkSkipped + "; unchanged skipped " + unchangedSkipped);
             }
 
             bool connected = client.Connected;
             if (connected && !wasConnected && !BridgeMod.Map.Active) client.SetFrame(Placeholder());
+            if (connected && !wasConnected) lastSentHash = 0;
             wasConnected = connected;
 
             string title = "DQ8MR | " + BridgeMod.Status;
@@ -569,7 +577,7 @@ namespace DualScreenBridge
                 yield return end;
                 FrameTrace.EndOfFrame();
                 if (Time.realtimeSinceStartup < nextFrame) continue;
-                nextFrame = Time.realtimeSinceStartup + 0.25f;
+                nextFrame = Time.realtimeSinceStartup + (unchangedRuns >= StillReads ? StillInterval : MovingInterval);
                 BridgeClient client = BridgeMod.Client;
                 // A new copy draws black until its windows exist, so the previous picture stays on the second screen meanwhile.
                 if (client == null || !client.Connected || !BridgeMod.Map.Active || !BridgeMod.Map.Ready) continue;
@@ -616,6 +624,15 @@ namespace DualScreenBridge
                         }
                         return;
                     }
+                    long hash = Fingerprint(raw, w, h);
+                    if (hash == lastSentHash)
+                    {
+                        unchangedRuns++;
+                        unchangedSkipped++;
+                        return;
+                    }
+                    lastSentHash = hash;
+                    unchangedRuns = 0;
                     byte[] jpg = Encoder.Encode(raw, w, h);
                     EncodeStat.AddQuiet(started);
                     client.SetFrame(jpg);
@@ -629,6 +646,22 @@ namespace DualScreenBridge
                     System.Threading.Interlocked.Exchange(ref encoding, 0);
                 }
             });
+        }
+
+        // A hash of every sixth pixel in both directions, fine enough to notice the player cursor moving.
+        private static long Fingerprint(byte[] raw, int w, int h)
+        {
+            long hash = 1469598103934665603L;
+            for (int y = 0; y < h; y += 6)
+            {
+                int row = y * w * 3;
+                for (int x = 0; x < w; x += 6)
+                {
+                    int p = row + x * 3;
+                    hash = (hash ^ (raw[p] | (raw[p + 1] << 8) | (raw[p + 2] << 16))) * 1099511628211L;
+                }
+            }
+            return hash == 0 ? 1 : hash;
         }
 
         // Samples a grid of pixels of Unity's bottom-up RGB24 data: mean colour, and whether a large share is magenta.

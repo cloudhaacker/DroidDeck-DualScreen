@@ -270,6 +270,13 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - v0.6.22: removed the HUD watch (`WatchHud`, `StartHudWatch`, `GameApi.HudInputs` and their fields). `GameApi.MiniMapState` stays; it is still appended to the `showing:`, `map copy removed:` and `battle:` lines. No behavior change.
 - Next, in order: capture only when the picture changed (stutters), default the Game map option on and auto-start it, then icons on/off, touch pan and zoom, hide icons for unvisited places.
 
+## v0.6.23 (skip unchanged pictures; built, untested on device)
+- Why: v0.6.21 logs show about 4 captures per second, each JPEG encode on the worker averaging 140 ms (about half a core all the time) and each capture a 9 ms main-thread read (max 15 to 44 ms), even when the map was not changing. Likely the remaining micro stutters.
+- `Fingerprint` hashes every 6th pixel of the raw picture in the worker. If it equals the last sent picture's hash the encode and send are skipped (`unchanged skipped N` in the `perf ms:` line). After 3 unchanged results in a row the capture interval goes from 0.25 s to 0.5 s; any changed picture or app command (`unchangedRuns = 0`) goes back to 0.25 s. `lastSentHash` is reset when the app reconnects so a new connection gets a picture.
+- Limits: an animated map cursor or icons keep the picture changing, so the saving may be small while one is on screen; the first change after a still period can take up to 0.5 s to show. Pink pictures are still dropped before the hash check.
+- To read in the log: `capture` count per window (expect about half while standing still), `encode (worker)` count, `unchanged skipped`, and the trace lines' `fps` and `max` frame time while standing still and while walking.
+- If the saving is small: next options are a lower capture resolution, a cheaper encoder setting, or encoding only the changed rows.
+
 ## Roadmap (updated after v0.6.14; John's rule: get it playable first, experiment later; one fix per release, tested on the Thor)
 Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps, screen 60 fps, no frame gen. The big freezes were the emulation stack, not the mod.
 
