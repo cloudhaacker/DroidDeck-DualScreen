@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.20", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.21", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -24,7 +24,7 @@ namespace DualScreenBridge
         internal static bool Armed = true;
         // A file named DualScreenBridge.nocopy next to the game's exe turns the map copy off and leaves only the trace.
         internal static bool NoCopy;
-        // A file named DualScreenBridge.keepminimap keeps the game's minimap open; otherwise it is closed once after each load.
+        // A file named DualScreenBridge.keepminimap leaves the game's minimap visible on the main screen while the bridge is connected.
         internal static bool KeepMiniMap;
         internal static int QuickDeaths;
         internal static float RetryAt;
@@ -50,6 +50,7 @@ namespace DualScreenBridge
             StallProbe.Log = delegate (string line) { MelonLogger.Msg(line); };
             StallProbe.Start();
             FrameTrace.Start();
+            MiniMapHider.Start();
             MelonLogger.Msg("started, bridge at " + BridgeClient.Host + ":" + BridgeClient.Port);
         }
 
@@ -350,8 +351,6 @@ namespace DualScreenBridge
         private static bool lastBattle;
         private static bool playerSeen;
         private static int hitchesLogged;
-        private static bool miniMapDone;
-        private static string lastMiniMapResult = "";
         private static float hudWatchUntil;
         private static string hudWatchLast = "";
         private static int hudWatchLogged;
@@ -555,7 +554,6 @@ namespace DualScreenBridge
             if (!GameApi.HasPlayer())
             {
                 map.Destroy("no player");
-                miniMapDone = false;
                 freeSince = -1f;
                 lastMapNo = int.MinValue;
                 BridgeMod.Status = "waiting for the field";
@@ -581,17 +579,6 @@ namespace DualScreenBridge
                 StartHudWatch("map " + mapNo);
                 freeSince = free ? now : -1f;
                 map.Destroy("map changed");
-            }
-            if (!miniMapDone && !BridgeMod.KeepMiniMap && free && freeSince >= 0f && now - freeSince >= SettleSeconds)
-            {
-                bool final;
-                string result = GameApi.CloseMiniMap(out final);
-                miniMapDone = final;
-                if (result != lastMiniMapResult)
-                {
-                    lastMiniMapResult = result;
-                    MelonLogger.Msg("minimap close: " + result);
-                }
             }
             int mode = GameApi.AutoMode();
             if (mode == 0)

@@ -257,6 +257,14 @@ sends `MelonLoader/Latest.log` plus screenshots.
 - Unknown until tested: whether the game reopens the minimap after a fight or map change (`isMiniMapOpen` is static and `ButtonPanelWindow.PostCreate` reads it, so it should stay closed). The existing `battle: False` log lines print `minimap: open=...`.
 - With the minimap closed the toolkit minimap camera has nothing to draw, so the layer clash with `Isolate` no longer shows. If John reopens it with d-pad right while the copy exists it stays invisible; that is the old behavior.
 
+## v0.6.20 result and v0.6.21 (hide the minimap camera, keep the minimap open)
+- v0.6.20 on device: `minimap close: closed` once after the load, `isMiniMapOpen` stayed False through map changes and three fights, no minimap on the top screen, layer 31 as in v0.6.17. Regression: entering the waterfall cave (map 5, key 5/2/-1) the copy showed Farebury's label and icons on a black background (`last map picture rgb 11,11,11`; v0.6.17 had 96,77,53 for the same map). Farebury, the field map and the world map were fine.
+- Cause: `MiniMap.StatusChangeMapInit` calls `guidmap.InitGuidMapEach`, which loads the per-area map data the copy reads (`GUIMap.EndMap` does the same for the real map). With the minimap closed that init does not run on an area change, so the copy read the previous town's data. Closing the minimap logically is therefore wrong while the copy is in use.
+- v0.6.21: removed `GameApi.CloseMiniMap` and its poll block. New `MiniMapHider` sets the culling mask of `DQ8MR minimap camera` to 0 in `Camera.onPreCull` (looked up once per camera instance), only while the bridge is connected and neither `nocopy` nor `keepminimap` files exist. The minimap stays open in the game, so its init keeps loading map data, and the toolkit's camera rebuilds after fights or map changes cannot flash it because the mask is cleared before every cull. The mask-0 camera still clears depth, as the mask-0 camera did in v0.6.17.
+- `DualScreenBridge.keepminimap` now means: leave the minimap camera alone (minimap visible on the main screen, but the copy still strips layer 31 from it while the copy exists, as before).
+- Expected on device: no minimap on the top screen at any time (including right after fights and in the cave), the cave map shows the cave, layer=31 in `map copy created`, `DQ8MR minimap camera` mask 0x0 in camera dumps.
+- Open: the game's d-pad right toggle still changes `isMiniMapOpen`; if John closes it by hand the cave-data problem returns. HUD watch logging is still in.
+
 ## Roadmap (updated after v0.6.14; John's rule: get it playable first, experiment later; one fix per release, tested on the Thor)
 Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps, screen 60 fps, no frame gen. The big freezes were the emulation stack, not the mod.
 

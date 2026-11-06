@@ -135,37 +135,6 @@ namespace DualScreenBridge
             return text;
         }
 
-        // Does what the d-pad right toggle does when the minimap is open: the button panel's own close handler.
-        // Returns a result and whether it is final; "no ..." results mean the HUD is not ready or has no minimap yet.
-        public static string CloseMiniMap(out bool final)
-        {
-            final = false;
-            try
-            {
-                object fgm = Invoke(null, Find("FieldGUIManager"), "Get");
-                if ((fgm as UnityEngine.Object) == null) return "no field gui";
-                object controller = Invoke(fgm, null, "get_Controller");
-                if ((controller as UnityEngine.Object) == null) return "no controller";
-                object panel = Invoke(controller, null, "get_ButtonPanel");
-                if ((panel as UnityEngine.Object) == null) return "no button panel";
-                if (!(bool)GetField(null, Find("guidmap"), "isMiniMapOpen"))
-                {
-                    final = true;
-                    return "already closed";
-                }
-                int pattern = Convert.ToInt32(GetField(panel, null, "dispObjPatturn"));
-                if ((pattern & 8194) == 0) return "no minimap in this view (display pattern " + pattern + ")";
-                Invoke(panel, null, "PressCloseDirectMap");
-                final = true;
-                return "closed";
-            }
-            catch (Exception e)
-            {
-                final = true;
-                return "failed: " + e.Message;
-            }
-        }
-
         // The inputs of the toolkit's FieldHud.Tick decision to hide the game's field HUD (and its minimap).
         public static string HudInputs()
         {
