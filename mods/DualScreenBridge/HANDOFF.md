@@ -321,3 +321,10 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - Videos failed and the new-game intro hung: CachyOS Proton's GStreamer libav plugin could not load (`libvpx.so.9`, `libspeex.so.1`, `libjpeg.so.62` missing), so there was no H.264 decoder. Nothing to do with the mod. John reset his profiles to defaults and the videos play again; the stutters went away at the same time (cause not isolated, likely the Proton/profile state).
 - v0.6.23 tested after the reset: connects, map copies in town, field and the cave map, minimap never shown, no big hitches, world map ~28 fps, unchanged-picture skipping works (`unchanged skipped` counts rise).
 - Next: merge the sync branch into `dual-screen-map`, then roadmap item 5 (Game map default and auto-start).
+
+### More requests from John (2026-11-07)
+- Start page and Quit tile shipped and tested (app only, `dual-screen-map`, build 42399178800).
+- C. Per-game bottom-screen choice (app): remember the bottom-screen panel per game (game map, keyboard/trackpad, none) instead of one global choice, so DQ8 defaults to the game map and other games do not. `SessionState.gameId` identifies the game; the global `secondScreenPanel` pref is what is used today. The map auto-open (`gameMapConnected`) already only fires for games whose mod connects, so other games are safe now.
+- D. Idle picture on the bottom screen (mod + app): show something while there is no map (boot, new game before Farebury, settling, areas without a map). Ideas: MelonLoader credit on boot; then the current location name from the game. DQ8 has no named chapters. Do not ship the Square Enix logo or other game art in the mod; use text, or what the game itself shows.
+- Order: crop and polish first, then D, then C, then touch pan and zoom and icons on/off.
+
