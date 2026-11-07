@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.25", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.26", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -28,6 +28,8 @@ namespace DualScreenBridge
         internal static bool KeepMiniMap;
         // The bottom picture is cropped to the map unless a file named DualScreenBridge.nocrop sits next to the exe.
         internal static bool Crop = true;
+        // The zoom a map copy starts with (1 = whole map). A file DualScreenBridge.zoom1 next to the exe starts at 1.
+        internal static float StartZoom = 2f;
         internal static int QuickDeaths;
         internal static float RetryAt;
 
@@ -41,6 +43,7 @@ namespace DualScreenBridge
                 NoCopy = System.IO.File.Exists(System.IO.Path.Combine(folder, "DualScreenBridge.nocopy"));
                 KeepMiniMap = System.IO.File.Exists(System.IO.Path.Combine(folder, "DualScreenBridge.keepminimap"));
                 Crop = !System.IO.File.Exists(System.IO.Path.Combine(folder, "DualScreenBridge.nocrop"));
+                if (System.IO.File.Exists(System.IO.Path.Combine(folder, "DualScreenBridge.zoom1"))) StartZoom = 1f;
             }
             catch (Exception)
             {
@@ -400,8 +403,14 @@ namespace DualScreenBridge
             string command;
             while (client.TryTakeCommand(out command))
             {
-                MelonLogger.Msg("command: " + command);
                 unchangedRuns = 0;
+                if (command.StartsWith("zoom:") || command.StartsWith("pan:") || command == "view:reset")
+                {
+                    BridgeMod.Map.Gesture(command);
+                    nextFrame = 0f;
+                    continue;
+                }
+                MelonLogger.Msg("command: " + command);
                 if (command == "view:area" || command == "view:world")
                 {
                     BridgeMod.DesiredView = command == "view:area" ? 1 : 0;

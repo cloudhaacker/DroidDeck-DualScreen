@@ -31,6 +31,17 @@ namespace DualScreenBridge
         private int cameraChanges;
         private int afterDumps;
         private static int widgetDumps;
+        // The view inside the copy: zoom and a centre in picture pixels (x right, y down), clamped to the map rows that are sent.
+        private const float DefaultZoom = 2f, MinZoom = 1f, MaxZoom = 4f;
+        private float zoom = DefaultZoom;
+        private bool follow = true;
+        private float viewX, viewY;
+        private float baseOrtho;
+        private Vector3 basePos;
+        private Camera ownCamera;
+        private Transform cursor;
+        private float cursorScanAt;
+        private float lastZoom = -1f, lastX = -1f, lastY = -1f;
 
         public string Key = "";
 
@@ -136,6 +147,16 @@ namespace DualScreenBridge
             cam.depth = -100f;
             cam.targetTexture = target;
             Isolate();
+            ownCamera = cam;
+            baseOrtho = cam.orthographicSize;
+            basePos = cameraObject.transform.position;
+            zoom = BridgeMod.StartZoom;
+            follow = true;
+            cursor = null;
+            cursorScanAt = 0f;
+            viewX = width / 2f;
+            viewY = height * (CropTop + CropBottom) / 2f;
+            lastZoom = lastX = lastY = -1f;
             if (!camerasLogged) LogCameras(main, useW, useH);
 
             object modeValue = GameApi.GetField(null, guiMap, "gMapMode");
@@ -182,6 +203,7 @@ namespace DualScreenBridge
         public void Tick()
         {
             if (root == null) return;
+            if (cameraObject != null) ApplyView();
             if (instance != null) Relayer();
             if (strayScans < 12 && Time.realtimeSinceStartup >= strayAt)
             {
@@ -246,6 +268,77 @@ namespace DualScreenBridge
                 RenderTexture.active = previous;
             }
             return ImageConversion.EncodeToJPG(readback, 80);
+        }
+
+        // Touch gestures from the second screen: zoom:<factor> multiplies the zoom, pan:<dx>,<dy> drags by fractions of the picture, view:reset goes back to the start view.
+        public void Gesture(string command)
+        {
+            try
+            {
+                System.Globalization.CultureInfo c = System.Globalization.CultureInfo.InvariantCulture;
+                if (command == "view:reset") { zoom = BridgeMod.StartZoom; follow = true; return; }
+                if (command.StartsWith("zoom:"))
+                {
+                    zoom = Mathf.Clamp(zoom * float.Parse(command.Substring(5), c), MinZoom, MaxZoom);
+                    return;
+                }
+                if (command.StartsWith("pan:") && target != null)
+                {
+                    string[] parts = command.Substring(4).Split(',');
+                    float dx = float.Parse(parts[0], c), dy = float.Parse(parts[1], c);
+                    float rows = target.height * (CropBottom - CropTop);
+                    follow = false;
+                    viewX -= dx * target.width / zoom;
+                    viewY -= dy * rows / zoom;
+                }
+            }
+            catch (Exception e)
+            {
+                MelonLogger.Warning("bad gesture '" + command + "': " + e.Message);
+            }
+        }
+
+        // The hero's marker on the map copy, in picture pixels, or false while the game keeps it parked off the picture.
+        private bool HeroPixel(float unit, out float px, out float py)
+        {
+            px = py = 0f;
+            if (cursor == null || !cursor.gameObject.activeInHierarchy)
+            {
+                cursor = null;
+                if (Time.realtimeSinceStartup < cursorScanAt || root == null) return false;
+                cursorScanAt = Time.realtimeSinceStartup + 1f;
+                foreach (Transform t in root.GetComponentsInChildren<Transform>(false))
+                {
+                    if (t.name == "map_cursor") { cursor = t; break; }
+                }
+                if (cursor == null) return false;
+            }
+            px = target.width / 2f + (cursor.position.x - basePos.x) / unit;
+            py = target.height / 2f - (cursor.position.y - basePos.y) / unit;
+            return px > 0f && px < target.width && py > 0f && py < target.height;
+        }
+
+        private void ApplyView()
+        {
+            if (ownCamera == null || target == null || baseOrtho <= 0f) return;
+            float w = target.width, h = target.height;
+            float unit = 2f * baseOrtho / h;
+            float top = h * CropTop, bottom = h * CropBottom, centreY = (top + bottom) / 2f;
+            if (follow)
+            {
+                float hx, hy;
+                if (HeroPixel(unit, out hx, out hy)) { viewX = hx; viewY = hy; }
+                else { viewX = w / 2f; viewY = centreY; }
+            }
+            float halfW = w / zoom / 2f, halfH = (bottom - top) / zoom / 2f;
+            viewX = Mathf.Clamp(viewX, halfW, w - halfW);
+            viewY = Mathf.Clamp(viewY, top + halfH, bottom - halfH);
+            if (zoom == lastZoom && viewX == lastX && viewY == lastY) return;
+            lastZoom = zoom; lastX = viewX; lastY = viewY;
+            // The sent rows are centred above the middle of the picture, so the camera sits a little lower than the view centre.
+            float cx = viewX, cy = viewY + (h / 2f - centreY) / zoom;
+            cameraObject.transform.position = new Vector3(basePos.x + (cx - w / 2f) * unit, basePos.y - (cy - h / 2f) * unit, basePos.z);
+            ownCamera.orthographicSize = baseOrtho / zoom;
         }
 
         // The map window fills only the middle of the picture; its zoom buttons, Icons Off and close sit below it.

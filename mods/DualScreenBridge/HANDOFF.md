@@ -339,3 +339,11 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - App: Area and World buttons use icons (Map, Public) because the upstream bottom bar draws icon-only buttons (the text-only ones showed as empty circles).
 - Next: John's wish for a default zoom close to the minimap (follows the hero, icons uncovered as you go), user zoom, and later an in-game options menu (return to minimap zoom after idle, or keep the zoom). That belongs to touch pan and zoom.
 
+## v0.6.25 result and v0.6.26 (zoom and pan)
+- v0.6.25 on device: crop good, Area/World icons good, no clipping on the 3 known maps. Widget inventory worked (see log): area map paper is `T&D_Map(Clone)/map/Sprite_map` (0,210 size 720x574 in picture px), name label `map/Label_name` (the "Farebury" / "Waterfall Cave: Level 1" text is part of the picture and stays), buttons `Map_Top(Clone)/btn_02` (Icons Off, `_buttonPillowEnboss`), `btn_Plus`/`btn_Minus` (zoom), bottom bar `_bar02`, close `CloseButton/Close_Btn(Clone)`, hero marker `icon/icon_cursor/map_cursor` (pivot Bottom; parked at x=1148 or y=-22000 when not shown), visited-place icons `map/icon/<name>(Clone)`.
+- App's own title text ("DQ8MR | field map") overlapped the map; removed in the app.
+- v0.6.26: the copy's camera zooms and pans (`HeadlessMap.ApplyView`). Start view zoom 2 following the hero (`map_cursor`), clamped inside the sent rows; zoom 1..4. Commands from the app: `zoom:<factor>`, `pan:<dx>,<dy>` (fractions of the picture), `view:reset`. Gesture commands are not logged. `DualScreenBridge.zoom1` next to the exe starts at zoom 1.
+- App: `SessionMapView` handles drag (pan), pinch (zoom), double tap (reset); sends at most about every 70 ms.
+- Unknowns for the test: whether the picture really follows the hero in towns and on the field map, how laggy it feels (pictures arrive about 4 per second), and whether the hero marker is found in every view.
+- Later: idle behaviour options (return to the start view after a while, or keep the user's zoom), in-game options menu, hide icons for unvisited places.
+

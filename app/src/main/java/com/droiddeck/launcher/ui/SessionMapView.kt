@@ -5,6 +5,9 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.view.GestureDetector
+import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
 import com.droiddeck.launcher.R
 import com.droiddeck.launcher.session.MapFeed
@@ -24,6 +27,61 @@ internal class SessionMapView(context: Context) : View(context) {
 
     private fun dp(value: Int): Int = (value * density + 0.5f).toInt()
 
+    // Touch: drag pans, pinch zooms, double tap goes back to the start view. The game side does the work and sends a new picture.
+    private var pendingZoom = 1f
+    private var pendingDx = 0f
+    private var pendingDy = 0f
+    private var lastSent = 0L
+
+    private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+        override fun onDown(e: MotionEvent): Boolean = true
+
+        override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
+            if (dest.width() > 0f && dest.height() > 0f) {
+                pendingDx -= distanceX / dest.width()
+                pendingDy -= distanceY / dest.height()
+                flush(false)
+            }
+            return true
+        }
+
+        override fun onDoubleTap(e: MotionEvent): Boolean {
+            MapFeed.sendCommand("view:reset")
+            return true
+        }
+    })
+
+    private val scaler = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScale(detector: ScaleGestureDetector): Boolean {
+            pendingZoom *= detector.scaleFactor
+            flush(false)
+            return true
+        }
+    })
+
+    private fun flush(force: Boolean) {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (!force && now - lastSent < 70) return
+        lastSent = now
+        if (pendingZoom != 1f) {
+            MapFeed.sendCommand(String.format(java.util.Locale.US, "zoom:%.3f", pendingZoom))
+            pendingZoom = 1f
+        }
+        if (pendingDx != 0f || pendingDy != 0f) {
+            MapFeed.sendCommand(String.format(java.util.Locale.US, "pan:%.4f,%.4f", pendingDx, pendingDy))
+            pendingDx = 0f
+            pendingDy = 0f
+        }
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (MapFeed.bitmap == null) return false
+        scaler.onTouchEvent(event)
+        if (!scaler.isInProgress) gestures.onTouchEvent(event)
+        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) flush(true)
+        return true
+    }
+
     override fun onDraw(canvas: Canvas) {
         canvas.drawColor(Color.BLACK)
         val bitmap = MapFeed.bitmap
@@ -36,8 +94,6 @@ internal class SessionMapView(context: Context) : View(context) {
         val h = bitmap.height * scale
         dest.set((width - w) / 2f, (height - h) / 2f, (width + w) / 2f, (height + h) / 2f)
         canvas.drawBitmap(bitmap, null, dest, bitmapPaint)
-        val title = MapFeed.title
-        if (title.isNotEmpty()) canvas.drawText(title, dp(8).toFloat(), dp(20).toFloat(), textPaint)
     }
 
     private fun drawWaiting(canvas: Canvas) {
