@@ -328,3 +328,7 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - D. Idle picture on the bottom screen (mod + app): show something while there is no map (boot, new game before Farebury, settling, areas without a map). Ideas: MelonLoader credit on boot; then the current location name from the game. DQ8 has no named chapters. Do not ship the Square Enix logo or other game art in the mod; use text, or what the game itself shows.
 - Order: crop and polish first, then D, then C, then touch pan and zoom and icons on/off.
 
+## v0.6.24 (crop and polish, step 1: inventory)
+- Diagnostic only. `HeadlessMap.DumpWidgets()` logs every visible NGUI widget of the copy once per copy (first four copies per session) as `widget: parent/name [UISprite|UILabel|UITexture] x0,y0 - x1,y1 depth=N sprite=... / text=...` in pixels of the 720-wide bottom picture, from the top left. Header line `widgets: N in the copy, picture WxH`.
+- Plan: from that list pick the crop rectangle (map only) and the widgets to hide (close button, zoom, Icons Off, arrows). John to send the log plus bottom-screen screenshots of the area map, the world map and the field map.
+

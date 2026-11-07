@@ -30,6 +30,7 @@ namespace DualScreenBridge
         private float readyAt;
         private int cameraChanges;
         private int afterDumps;
+        private static int widgetDumps;
 
         public string Key = "";
 
@@ -211,6 +212,7 @@ namespace DualScreenBridge
                     DumpCameras("after");
                 }
                 LogSelected();
+                if (widgetDumps < 4) { widgetDumps++; DumpWidgets(); }
                 Type cap = GameApi.Find("CapturedBgNGUI");
                 if (cap != null)
                 {
@@ -339,6 +341,48 @@ namespace DualScreenBridge
         }
 
         // The game also makes a full-screen "captured background" object for its map window, on the main layer.
+        // One-off inventory of the copy's visible NGUI widgets, in pixels of the bottom picture, to plan the crop and the hidden buttons.
+        private void DumpWidgets()
+        {
+            Type widget = GameApi.Find("UIWidget");
+            if (widget == null || cameraObject == null || target == null) { MelonLogger.Msg("widgets: UIWidget not found"); return; }
+            Camera cam = cameraObject.GetComponent<Camera>();
+            Component[] all = root.GetComponentsInChildren(widget, true);
+            int shown = 0;
+            MelonLogger.Msg(string.Format("widgets: {0} in the copy, picture {1}x{2} (pixels from the top left): name [type] x0,y0 - x1,y1 detail", all.Length, target.width, target.height));
+            foreach (Component c in all)
+            {
+                if (shown >= 160) break;
+                if (c == null || !c.gameObject.activeInHierarchy) continue;
+                try
+                {
+                    Vector3[] corners = GameApi.Invoke(c, null, "get_worldCorners") as Vector3[];
+                    if (corners == null || corners.Length < 4) continue;
+                    Vector3 a = cam.WorldToViewportPoint(corners[0]);
+                    Vector3 b = cam.WorldToViewportPoint(corners[2]);
+                    float x0 = Mathf.Min(a.x, b.x) * target.width, x1 = Mathf.Max(a.x, b.x) * target.width;
+                    float y0 = (1f - Mathf.Max(a.y, b.y)) * target.height, y1 = (1f - Mathf.Min(a.y, b.y)) * target.height;
+                    if (x1 < 0 || y1 < 0 || x0 > target.width || y0 > target.height) continue;
+                    string detail = "";
+                    string kind = c.GetType().Name;
+                    try
+                    {
+                        if (kind == "UISprite") detail = "sprite=" + GameApi.Invoke(c, null, "get_spriteName");
+                        else if (kind == "UILabel") detail = "text=" + GameApi.Invoke(c, null, "get_text");
+                        else if (kind == "UITexture") detail = "texture=" + GameApi.Invoke(c, null, "get_mainTexture");
+                    }
+                    catch (Exception) { }
+                    if (detail.Length > 60) detail = detail.Substring(0, 60);
+                    string path = c.name;
+                    Transform parent = c.transform.parent;
+                    if (parent != null && parent.name != "DualScreenMapRoot") path = parent.name + "/" + path;
+                    MelonLogger.Msg(string.Format("widget: {0} [{1}] {2:0},{3:0} - {4:0},{5:0} depth={6} {7}", path, kind, x0, y0, x1, y1, GameApi.Invoke(c, null, "get_depth"), detail));
+                    shown++;
+                }
+                catch (Exception) { }
+            }
+        }
+
         private void HideStrays()
         {
             if (BridgeMod.RealMapOpen) return;
