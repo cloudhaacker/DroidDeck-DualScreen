@@ -48,6 +48,9 @@ namespace DualScreenBridge
         private volatile bool dirty;
         private int createdMode;
         private Transform iconRoot;
+        private float localRefreshAt;
+        private Vector3 localRefreshPos = new Vector3(float.MaxValue, 0f, 0f);
+        private int localRefreshLogs;
         private string markerName = "map_cursor";
         private int pixelLogs;
         private Vector3 lastCursorPos;
@@ -172,6 +175,9 @@ namespace DualScreenBridge
             cursorScanAt = 0f;
             ownTown = ownWorld = null;
             iconRoot = null;
+            localRefreshAt = 0f;
+            localRefreshPos = new Vector3(float.MaxValue, 0f, 0f);
+            localRefreshLogs = 0;
             createdMode = mode;
             cursorSetAt = 0f;
             pixelLogs = 0;
@@ -345,6 +351,7 @@ namespace DualScreenBridge
                     GameApi.SetField(ownWorld, worldType, "playerPos", info[0]);
                     GameApi.SetField(ownWorld, worldType, "playerRot", info[1]);
                     bool local = Convert.ToBoolean(GameApi.GetField(ownWorld, worldType, "isLocalMap"));
+                    if (local) RefreshLocalMap(worldType, (Vector3)info[0]);
                     GameApi.Invoke(ownWorld, worldType, local ? "SetLocalCursor" : "SetWorldCursor");
                     GameObject icons = GameApi.GetField(ownWorld, worldType, local ? "bigMapIcon" : "smallMapIcon") as GameObject;
                     Transform rootIcons = icons != null ? icons.transform : null;
@@ -389,6 +396,23 @@ namespace DualScreenBridge
             {
                 BridgeMod.OwnDepth--;
             }
+        }
+
+        // The local map keeps the hero's marker at its centre and lays its tiles out around the hero once, when the window opens.
+        private void RefreshLocalMap(Type worldType, Vector3 pos)
+        {
+            if (Time.realtimeSinceStartup < localRefreshAt || (pos - localRefreshPos).sqrMagnitude < 60f * 60f) return;
+            localRefreshAt = Time.realtimeSinceStartup + 0.4f;
+            localRefreshPos = pos;
+            object[] spot = new object[] { pos, GameApi.GetField(null, worldType, "interior") };
+            GameApi.Invoke(null, GameApi.Find("guidmap"), "SetSpecificPlayerPos", spot);
+            GameApi.SetField(ownWorld, worldType, "playerPos", spot[0]);
+            GameApi.SetField(null, worldType, "interior", spot[1]);
+            GameApi.SetField(ownWorld, worldType, "localMapSize", GameApi.Invoke(ownWorld, worldType, "GetLocalMapSize"));
+            GameApi.Invoke(ownWorld, worldType, "GetLocalMapInfo", GameApi.GetField(null, worldType, "MapTexPutPos"), GameApi.GetField(null, worldType, "MapTexPutIndex"));
+            GameApi.Invoke(ownWorld, worldType, "SetMapDrawItem");
+            if (localRefreshLogs < 6) { localRefreshLogs++; MelonLogger.Msg("local map re-laid out around " + pos); }
+            dirty = true;
         }
 
         // The hero's marker on the map copy, in picture pixels, or false while the game keeps it parked off the picture.

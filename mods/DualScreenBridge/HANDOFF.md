@@ -363,3 +363,7 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 
 ## v0.6.29 result and v0.6.30
 - v0.6.29 with SettleSeconds 1.0 broke loading a save inside a church: the copy was created 1.25 s after the player first counted as free, the priest's dialogue started about 1 s later (player free False, mode=2) and input never came back. The settle wait is a real guard against building the copy just before a scripted scene; v0.6.30 restores 2.5 s. Do not shorten it without a better signal (for example, wait until the game has been free and no scene has started for N seconds, or until a save-load flag clears).
+
+## v0.6.30 result and v0.6.31 (field map follows the hero)
+- v0.6.30 log: on the field map the game's `SetLocalCursor` always puts the marker at (0,0), the centre of the local map; the map tiles are laid out around the hero once, when the window opens (OnUpdate init: GetPlayerInfo, SetSpecificPlayerPos, GetLocalMapSize, GetLocalMapInfo, SetMapDrawItem). So the marker only turned and never moved.
+- v0.6.31: RefreshLocalMap repeats that init sequence on the copy when the hero has moved 60+ units (at most every 0.4 s). Untested; watch for flicker, wrong icons, or a log warning "could not place the hero marker". If SetMapDrawItem is too heavy or resets things, fall back to rebuilding the copy after the hero moves a long way, or scale the marker by the hero's offset.
