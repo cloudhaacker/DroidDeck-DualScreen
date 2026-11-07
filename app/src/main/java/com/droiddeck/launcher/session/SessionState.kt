@@ -92,6 +92,8 @@ object SessionState {
     @Volatile var secondScreenMode = com.droiddeck.launcher.input.SecondScreenMode.NONE
     @Volatile var secondScreenDisplay = -1
     @Volatile var secondScreenAutoOpened = false
+    /** The player picked another bottom-screen panel, so a connecting game mod no longer switches it to the game map. */
+    @Volatile var gameMapDeclined = false
     @Volatile var secondScreenProvisional = false
     @Volatile var gameOnBottom = false
 

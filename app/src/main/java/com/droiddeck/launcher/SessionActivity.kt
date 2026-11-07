@@ -634,10 +634,12 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             SessionState.programArgs = intent.getStringArrayExtra(SessionService.EXTRA_PROGRAM_ARGS)?.toList().orEmpty()
             SessionEvents.begin(this, mode, SessionPaths.label(mode, intent.getStringExtra(SessionService.EXTRA_PROGRAM)))
             SessionState.secondScreenAutoOpened = false
+            SessionState.gameMapDeclined = false
             SessionState.secondScreenProvisional = false
             SessionState.gameOnBottom = false
             gameOnBottom = false
         }
+        com.droiddeck.launcher.session.MapFeed.onConnect = { uiHandler.post { gameMapConnected() } }
         if (!SessionState.running && SessionState.phase in setOf(SessionPhase.IDLE, SessionPhase.FAILED)) {
             SessionState.program = intent.getStringExtra(SessionService.EXTRA_PROGRAM)
             SessionState.programArgs = intent.getStringArrayExtra(SessionService.EXTRA_PROGRAM_ARGS)?.toList().orEmpty()
@@ -1432,6 +1434,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                 if (docked) drawerOpen = false
                 typingReturnMode = null
                 if (mode != SecondScreenMode.NONE) SessionPrefs.setSecondScreenPanel(this@SessionActivity, mode.id)
+                SessionState.gameMapDeclined = mode != SecondScreenMode.GAME_MAP
                 selectSecondScreenMode(mode)
             },
             onSecondScreenDisplay = ::selectSecondScreenDisplay,
@@ -3294,17 +3297,28 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         if (secondScreenDisplays.none { it.id == target.displayId }) return
         SessionState.secondScreenAutoOpened = true
         selectedSecondScreenDisplay = target.displayId
-        selectSecondScreenMode(SecondScreenMode.opening(SessionPrefs.secondScreenPanel(this), SessionState.deckPad, bottomPages().isNotEmpty(),
-            com.droiddeck.launcher.session.BottomDesktop.available()))
+        selectSecondScreenMode(openingSecondScreenMode())
         dualControlsProvisional = ::loading.isInitialized && loading.visible
+    }
+
+    /** The panel the bottom screen opens with: the game map as soon as a game mod is feeding it, unless the player picked another panel. */
+    private fun openingSecondScreenMode(): SecondScreenMode =
+        if (com.droiddeck.launcher.session.MapFeed.connected && !SessionState.gameMapDeclined) SecondScreenMode.GAME_MAP
+        else SecondScreenMode.opening(SessionPrefs.secondScreenPanel(this), SessionState.deckPad, bottomPages().isNotEmpty(),
+            com.droiddeck.launcher.session.BottomDesktop.available())
+
+    /** A game mod just connected: show its map on the bottom screen. A closed bottom screen stays closed. */
+    private fun gameMapConnected() {
+        if (SessionState.gameMapDeclined || pipUi || !started) return
+        if (secondScreenMode == SecondScreenMode.NONE || secondScreenMode == SecondScreenMode.GAME_MAP) return
+        selectSecondScreenMode(SecondScreenMode.GAME_MAP)
     }
 
     private fun settleDualScreenControls() {
         if (!dualControlsProvisional || pipUi || !started || (::loading.isInitialized && loading.visible)) return
         dualControlsProvisional = false
         if (secondScreenMode == SecondScreenMode.NONE) return
-        val wanted = SecondScreenMode.opening(SessionPrefs.secondScreenPanel(this), SessionState.deckPad, bottomPages().isNotEmpty(),
-            com.droiddeck.launcher.session.BottomDesktop.available())
+        val wanted = openingSecondScreenMode()
         if (wanted != secondScreenMode) selectSecondScreenMode(wanted) else secondScreenPresentation?.retryTerminal()
     }
 
@@ -5184,6 +5198,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     override fun onDestroy() {
         com.droiddeck.launcher.input.HomeButtonShortcuts.detach(this)
+        com.droiddeck.launcher.session.MapFeed.onConnect = null
         relativeMouseRequests.shutdownNow()
         backQamInput.cancel()
         steamVrRecovery.close()

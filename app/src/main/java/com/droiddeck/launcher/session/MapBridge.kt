@@ -18,6 +18,7 @@ object MapFeed {
     @Volatile var title: String = ""
     @Volatile var connected: Boolean = false
     @Volatile var onChange: (() -> Unit)? = null
+    @Volatile var onConnect: (() -> Unit)? = null
     @Volatile var sender: ((String) -> Unit)? = null
 
     fun sendCommand(command: String) {
@@ -76,6 +77,7 @@ class MapBridge : SessionPart() {
         MapFeed.sender = { text -> writer?.execute { write(output, text) } }
         MapFeed.onChange?.invoke()
         Log.i(TAG, "map bridge: game connected")
+        MapFeed.onConnect?.invoke()
         try {
             while (true) {
                 val length = input.readInt()
