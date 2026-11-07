@@ -47,6 +47,7 @@ namespace DualScreenBridge
         private int cursorLogs;
         private volatile bool dirty;
         private int createdMode;
+        private Transform iconRoot;
         private string markerName = "map_cursor";
         private int pixelLogs;
         private Vector3 lastCursorPos;
@@ -170,6 +171,7 @@ namespace DualScreenBridge
             cursor = null;
             cursorScanAt = 0f;
             ownTown = ownWorld = null;
+            iconRoot = null;
             createdMode = mode;
             cursorSetAt = 0f;
             pixelLogs = 0;
@@ -342,7 +344,11 @@ namespace DualScreenBridge
                     GameApi.Invoke(ownWorld, worldType, "GetPlayerInfo", info);
                     GameApi.SetField(ownWorld, worldType, "playerPos", info[0]);
                     GameApi.SetField(ownWorld, worldType, "playerRot", info[1]);
-                    GameApi.Invoke(ownWorld, worldType, "SetWorldCursor");
+                    bool local = Convert.ToBoolean(GameApi.GetField(ownWorld, worldType, "isLocalMap"));
+                    GameApi.Invoke(ownWorld, worldType, local ? "SetLocalCursor" : "SetWorldCursor");
+                    GameObject icons = GameApi.GetField(ownWorld, worldType, local ? "bigMapIcon" : "smallMapIcon") as GameObject;
+                    Transform rootIcons = icons != null ? icons.transform : null;
+                    if (rootIcons != iconRoot) { iconRoot = rootIcons; cursor = null; cursorScanAt = 0f; }
                 }
                 else if (ownTown != null)
                 {
@@ -394,7 +400,7 @@ namespace DualScreenBridge
                 cursor = null;
                 if (Time.realtimeSinceStartup < cursorScanAt || root == null) return false;
                 cursorScanAt = Time.realtimeSinceStartup + 1f;
-                foreach (Transform t in root.GetComponentsInChildren<Transform>(false))
+                foreach (Transform t in (iconRoot != null ? iconRoot : root.transform).GetComponentsInChildren<Transform>(false))
                 {
                     if (t.name == markerName) { cursor = t; break; }
                 }

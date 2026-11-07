@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.28", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.29", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -351,8 +351,10 @@ namespace DualScreenBridge
         private static readonly Stat TickStat = new Stat();
         private static readonly Stat ReadStat = new Stat();
         private static readonly Stat EncodeStat = new Stat();
-        private static readonly JpegEncoder Encoder = new JpegEncoder();
-        private static int encoding;
+        private static readonly JpegEncoder[] Encoders = { new JpegEncoder(), new JpegEncoder() };
+        private static readonly int[] slotBusy = new int[2];
+        private static long frameSeq, sentSeq;
+        private static readonly object sendLock = new object();
         private static int dropped;
         private const float MovingInterval = 0.12f;
         private const float StillInterval = 1.5f;
@@ -364,7 +366,7 @@ namespace DualScreenBridge
         private static int pinkLogged;
         private static string lastMean = "-";
 
-        private const float SettleSeconds = 2.5f;
+        private const float SettleSeconds = 1f;
         private static float freeSince = -1f;
         private static int lastMapNo = int.MinValue;
         private static bool lastFree;
@@ -625,11 +627,17 @@ namespace DualScreenBridge
         // The previous picture stays on the second screen while the worker is still busy with an older one.
         private static void EncodeAsync(byte[] raw, int w, int h, BridgeClient client)
         {
-            if (System.Threading.Interlocked.CompareExchange(ref encoding, 1, 0) != 0)
+            int slot = -1;
+            for (int i = 0; i < slotBusy.Length && slot < 0; i++)
+            {
+                if (System.Threading.Interlocked.CompareExchange(ref slotBusy[i], 1, 0) == 0) slot = i;
+            }
+            if (slot < 0)
             {
                 dropped++;
                 return;
             }
+            long seq = System.Threading.Interlocked.Increment(ref frameSeq);
             System.Threading.ThreadPool.QueueUserWorkItem(delegate
             {
                 try
@@ -658,9 +666,16 @@ namespace DualScreenBridge
                     }
                     lastSentHash = hash;
                     unchangedRuns = 0;
-                    byte[] jpg = Encoder.Encode(raw, w, h);
+                    byte[] jpg = Encoders[slot].Encode(raw, w, h);
                     EncodeStat.AddQuiet(started);
-                    client.SetFrame(jpg);
+                    lock (sendLock)
+                    {
+                        if (seq > sentSeq)
+                        {
+                            sentSeq = seq;
+                            client.SetFrame(jpg);
+                        }
+                    }
                 }
                 catch (Exception e)
                 {
@@ -668,7 +683,7 @@ namespace DualScreenBridge
                 }
                 finally
                 {
-                    System.Threading.Interlocked.Exchange(ref encoding, 0);
+                    System.Threading.Interlocked.Exchange(ref slotBusy[slot], 0);
                 }
             });
         }

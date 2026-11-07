@@ -356,3 +356,7 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 
 ## v0.6.27 result and v0.6.28 (hero marker offset)
 - v0.6.27 log: PlaceCursor works (marker moves with the hero, e.g. 62,177 -> 37,181) but the game sets world positions as if the map sat at the origin, so the marker landed near (0,0), nowhere near the copy at (20000,20000). v0.6.28 shifts the active marker's parent (icon_cursor, or icon_star when interior) by the root position, picks map_star for interiors, and uses the world path when the copy mode is 1 (v0.6.27 wrongly ran the town path on the field map). Logs "hero at picture x,y" up to 8 times.
+
+## v0.6.28 result and v0.6.29
+- v0.6.28 log: town and dungeon follow works. The field map is the game's "local map" (isLocalMap=True, status UpdateLocalMap), so the marker needs `SetLocalCursor` on `bigMapIcon`, not `SetWorldCursor` on `smallMapIcon`; the marker was stuck at the centre.
+- v0.6.29: local map uses SetLocalCursor and scans the marker under bigMapIcon; SettleSeconds 2.5 -> 1.0; two JPEG encoders run in parallel (encode averaged 82 ms, which capped the rate near 12 fps and dropped frames), with a sequence guard so older frames never replace newer ones.
