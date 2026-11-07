@@ -1441,6 +1441,13 @@
     <string name="rail_apps">Apps</string>
     <string name="rail_setup">Setup</string>
     <string name="rail_updates">Updates</string>
+    <string name="rail_quit">Quit</string>
+    <string name="quit_running_title">Quit DroidDeck?</string>
+    <string name="quit_running_message">A game session is still running. Quitting stops it.</string>
+    <string name="quit_confirm">Quit</string>
+    <string name="quit_cancel">Cancel</string>
+    <string name="setup_start_page">Start page</string>
+    <string name="setup_start_page_hint">The tab DroidDeck opens on when it starts.</string>
     <string name="rail_percent">%1$d%%</string>
     <string name="rail_resume_named">Resume %1$s</string>
     <string name="roms_text">Shows up as /root/ROMs in each session. Internal storage is at /root/Storage.</string>

@@ -209,6 +209,7 @@ class FrontEndActions(
     val onBattleNet: () -> Unit = {},
     val onRom: (Library.Rom) -> Unit,
     val onResume: () -> Unit,
+    val onQuit: () -> Unit = {},
     val onSteamSettings: () -> Unit,
     val onDesktopSettings: () -> Unit,
     val modeSheet: @Composable (mode: String, tab: String, extras: SheetExtras) -> Unit = { _, _, _ -> },
@@ -441,7 +442,10 @@ fun FrontEndScreen(s: FrontEndState, a: FrontEndActions, page: (@Composable () -
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun FrontEndScreenBody(s: FrontEndState, a: FrontEndActions, page: (@Composable () -> Unit)?, frontFocus: FrontFocus) {
-    var selected by rememberSaveable { mutableStateOf(if (s.shortcutPicker) "games" else "steam") }
+    val startContext = LocalContext.current
+    var selected by rememberSaveable {
+        mutableStateOf(if (s.shortcutPicker) "games" else SessionPrefs.startPage(startContext).takeIf { it in navigationKeys(s) } ?: "steam")
+    }
     LaunchedEffect(s.shortcutPicker) { if (s.shortcutPicker) selected = "games" }
     LaunchedEffect(s.navigate) {
         val target = s.navigate ?: return@LaunchedEffect

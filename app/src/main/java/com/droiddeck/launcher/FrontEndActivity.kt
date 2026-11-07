@@ -1290,6 +1290,7 @@ class FrontEndActivity : ComponentActivity() {
                                 .putExtra(SessionService.EXTRA_PROGRAM_ARGS, Library.launchArgs(e.id, g.guestPath).toTypedArray()))
                         },
                         onResume = { startActivity(Intent(this, SessionActivity::class.java)) },
+                        onQuit = { quitDroidDeck() },
                         onSteamSettings = { loadModeSettings(SessionService.MODE_STEAM) },
                         onRemoveDesktop = { removeDesktop() },
                         onDesktopSettings = { loadModeSettings(SessionService.MODE_DESKTOP) },
@@ -1745,6 +1746,23 @@ class FrontEndActivity : ComponentActivity() {
             SessionPrefs.STARTUP_DESKTOP -> startSession(Intent(this, SessionActivity::class.java)
                 .putExtra(SessionService.EXTRA_MODE, SessionService.MODE_DESKTOP))
         }
+    }
+
+    /** Closes DroidDeck's screens. A running game session is only stopped after the player confirms. */
+    private fun quitDroidDeck() {
+        if (!SessionState.running) {
+            finishAffinity()
+            return
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle(R.string.quit_running_title)
+            .setMessage(R.string.quit_running_message)
+            .setPositiveButton(R.string.quit_confirm) { _, _ ->
+                SessionService.stop(this)
+                finishAffinity()
+            }
+            .setNegativeButton(R.string.quit_cancel, null)
+            .show()
     }
 
     private fun playSteam() {

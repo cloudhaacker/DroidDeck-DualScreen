@@ -236,6 +236,13 @@ object SessionPrefs {
         prefs(context).edit().putBoolean("libraryShowSize", show).apply()
     }
 
+    /** The tab DroidDeck opens on: "steam" (default), "games" (Library), "stores" or "desktop". */
+    fun startPage(context: Context): String = prefs(context).getString("startPage", "steam") ?: "steam"
+
+    fun setStartPage(context: Context, page: String) {
+        prefs(context).edit().putString("startPage", page).apply()
+    }
+
     fun railLabels(context: Context): Boolean = prefs(context).getBoolean("railLabels", false)
 
     fun setRailLabels(context: Context, show: Boolean) {

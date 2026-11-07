@@ -405,7 +405,8 @@ internal fun DualPanelPublisher(s: FrontEndState, selected: String, onSelect: (S
         if (setupNeedsAttention(s)) add("setup")
         if (s.updates.hasUpdate) add("updates")
     }
-    val model = DualPanelModel(navigationKeys(s), selected, badges, s.storeDownloadsActive, s.running, s.theme, s.appScale, onSelect, a.onResume)
+    val model = DualPanelModel(navigationKeys(s) + "quit", selected, badges, s.storeDownloadsActive, s.running, s.theme, s.appScale,
+        { key -> if (key == "quit") a.onQuit() else onSelect(key) }, a.onResume)
     androidx.compose.runtime.SideEffect { DualScreenPanel.model = model }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { DualScreenPanel.model = null } }
 }

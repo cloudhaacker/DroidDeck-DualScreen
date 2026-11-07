@@ -455,6 +455,13 @@ internal fun SetupPanel(
                                 val railContext = androidx.compose.ui.platform.LocalContext.current
                                 remember { RailLabels.load(railContext) }
                                 ToggleRow(host, "rail-labels", stringResource(R.string.setup_rail_labels), stringResource(R.string.setup_rail_labels_hint), RailLabels.shown) { RailLabels.set(railContext, it) }
+                                var startPage by remember { mutableStateOf(SessionPrefs.startPage(railContext)) }
+                                ChoiceRow(
+                                    host, "start-page", stringResource(R.string.setup_start_page), stringResource(R.string.setup_start_page_hint),
+                                    navigationKeys(s).filter { it == "steam" || it == "games" || it == "stores" || it == "desktop" }
+                                        .map { it to stringResource(railLabelIcon(it).first) },
+                                    startPage, onPick = { startPage = it; SessionPrefs.setStartPage(railContext, it) },
+                                )
                                 LanguageRow(host, s.language, a.onLanguage)
                                 ToggleRow(host, "show-stores", stringResource(R.string.setup_stores), null, s.gameStoresEnabled, onChange = a.onGameStoresEnabled)
                             }
