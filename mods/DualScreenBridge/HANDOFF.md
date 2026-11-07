@@ -353,3 +353,6 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - v0.6.27: `HeadlessMap.PlaceCursor` runs every 0.2 s: `GetPlayerInfo`, store `playerPos/playerRot` (static for GUIMapTownAndDungeon, instance for GUIMapWorld), then `SetCursorDungeon`/`SetCursorTown` (guidmap mode 1/2) or `SetWorldCursor`, inside OwnDepth. Logs "hero marker: ..." up to 6 times per copy. Untested: check that the position lands inside the picture.
 - Pictures are change-driven: `HeadlessMap.dirty` is set on creation, gestures, view changes and hero marker movement; a dirty flag restarts a 0.12 s capture burst until 3 identical reads, then one keep-alive read every 1.5 s.
 - `FieldHud.ToggleMiniMap` is blocked while the bridge is connected (prefix `KeepMiniMapOpen`).
+
+## v0.6.27 result and v0.6.28 (hero marker offset)
+- v0.6.27 log: PlaceCursor works (marker moves with the hero, e.g. 62,177 -> 37,181) but the game sets world positions as if the map sat at the origin, so the marker landed near (0,0), nowhere near the copy at (20000,20000). v0.6.28 shifts the active marker's parent (icon_cursor, or icon_star when interior) by the root position, picks map_star for interiors, and uses the world path when the copy mode is 1 (v0.6.27 wrongly ran the town path on the field map). Logs "hero at picture x,y" up to 8 times.

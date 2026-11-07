@@ -46,6 +46,9 @@ namespace DualScreenBridge
         private float cursorSetAt;
         private int cursorLogs;
         private volatile bool dirty;
+        private int createdMode;
+        private string markerName = "map_cursor";
+        private int pixelLogs;
         private Vector3 lastCursorPos;
 
         public bool TakeDirty()
@@ -167,7 +170,9 @@ namespace DualScreenBridge
             cursor = null;
             cursorScanAt = 0f;
             ownTown = ownWorld = null;
+            createdMode = mode;
             cursorSetAt = 0f;
+            pixelLogs = 0;
             dirty = true;
             cursorLogs = 0;
             viewX = width / 2f;
@@ -331,7 +336,7 @@ namespace DualScreenBridge
                 if (ownTown == null && townType != null) ownTown = instance.GetComponentInChildren(townType, true);
                 if (ownWorld == null && worldType != null) ownWorld = instance.GetComponentInChildren(worldType, true);
                 object[] info = new object[] { Vector3.zero, Vector3.zero };
-                bool world = ownWorld != null && ownWorld.gameObject.activeInHierarchy && (ownTown == null || !ownTown.gameObject.activeInHierarchy);
+                bool world = createdMode == 1 && ownWorld != null;
                 if (world)
                 {
                     GameApi.Invoke(ownWorld, worldType, "GetPlayerInfo", info);
@@ -339,7 +344,7 @@ namespace DualScreenBridge
                     GameApi.SetField(ownWorld, worldType, "playerRot", info[1]);
                     GameApi.Invoke(ownWorld, worldType, "SetWorldCursor");
                 }
-                else if (ownTown != null && ownTown.gameObject.activeInHierarchy)
+                else if (ownTown != null)
                 {
                     GameApi.Invoke(ownTown, townType, "GetPlayerInfo", info);
                     GameApi.SetField(null, townType, "playerPos", info[0]);
@@ -347,6 +352,17 @@ namespace DualScreenBridge
                     int mode = Convert.ToInt32(GameApi.Invoke(null, GameApi.Find("guidmap"), "get_GetDQMapMode"));
                     if (mode == 1) GameApi.Invoke(ownTown, townType, "SetCursorDungeon");
                     else if (mode == 2) GameApi.Invoke(ownTown, townType, "SetCursorTown");
+                }
+                bool interior;
+                if (world) interior = Convert.ToInt32(GameApi.GetField(null, worldType, "interior")) != 0;
+                else interior = Convert.ToInt32(GameApi.GetField(GameApi.Invoke(null, GameApi.Find("guidmap"), "get_GetTownMapInfo"), null, "Interior")) != 0;
+                string wanted = interior ? "map_star" : "map_cursor";
+                if (wanted != markerName) { markerName = wanted; cursor = null; cursorScanAt = 0f; }
+                // The game positions the marker as if the map sat at the origin; the copy is far away.
+                Transform holder = cursor != null ? cursor.parent : null;
+                if (holder != null && holder.position.x < FarAway / 2f && holder.position.x > -10000f)
+                {
+                    holder.position += new Vector3(root.transform.position.x, root.transform.position.y, 0f);
                 }
                 if (cursor != null && cursor.position != lastCursorPos)
                 {
@@ -380,12 +396,13 @@ namespace DualScreenBridge
                 cursorScanAt = Time.realtimeSinceStartup + 1f;
                 foreach (Transform t in root.GetComponentsInChildren<Transform>(false))
                 {
-                    if (t.name == "map_cursor") { cursor = t; break; }
+                    if (t.name == markerName) { cursor = t; break; }
                 }
                 if (cursor == null) return false;
             }
             px = target.width / 2f + (cursor.position.x - basePos.x) / unit;
             py = target.height / 2f - (cursor.position.y - basePos.y) / unit;
+            if (pixelLogs < 8) { pixelLogs++; MelonLogger.Msg(string.Format("hero at picture {0:0},{1:0} ({2})", px, py, markerName)); }
             return px > 0f && px < target.width && py > 0f && py < target.height;
         }
 
