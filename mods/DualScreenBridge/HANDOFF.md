@@ -2,6 +2,15 @@
 
 Read this first when picking the project up in a new session.
 
+## Current state (end of 2026-11-07, mod v0.6.32; read this block first)
+- Repo `cloudhaacker/DroidDeck-DualScreen`, branch `dual-screen-map`. CI "Build APK" is the only compile check for the app; the mod builds with `build.sh` (needs the game's Managed folder and MelonLoader folder).
+- Working and tested by John: auto-open of the game map when the mod connects, start page setting, Quit tile, crop of the map picture, Area/World icons, touch pan/zoom, hero marker following in towns and dungeons (v0.6.28), faster pictures (parallel JPEG encoders, change-driven capture, minimap d-pad toggle blocked).
+- Built but NOT yet tested: v0.6.32. It moves the copy's root to the origin while the game's layout and cursor code runs (the game assumes its menu sits at the origin), to make the field map scroll with the hero and stay right in towns. If the field map still stays put, ask for the log and check "local map re-laid out" lines and the widget dump tile positions (tiles at about -44000 px mean the offset is still wrong).
+- Hard rule: `SettleSeconds` stays 2.5 s. At 1.0 s the copy appeared just as a scripted scene started (loading a save inside a church) and the game never received input; the map was black. Idea if John wants faster: use the long wait only for the first copy after a save loads and about 1.5 s after later map changes, tested with the church and doors.
+- The item-menu world map looks different because the game's toolkit (`MapUi`) replaces it with its own full-screen map. The copy deliberately uses the stock map, so they will differ.
+- Next on the roadmap, in order: finish the field-map follow; idle picture when there is no map (MelonLoader credit text and the current location name, no Square Enix logo or game art); per-game bottom-screen choice in the app (remember the panel per game via `SessionState.gameId`); icons on/off and hiding icons for unvisited places; in-game mod options menu (idle behaviour: return to the minimap-style view after a while, or keep the user's zoom); later modular options (item menu, party status, battle menus); poll the Masterpiece Reborn Discord before v1.0.
+- Working agreements: one fix per release, John tests on the Ayn Thor and sends `MelonLoader/Latest.log` plus screenshots, Claude replies in plain language, sends the DLL named `DualScreenBridge-verX.Y.Z.dll`, commits and pushes, and updates this file every release. `AGENTS.md`: comments rare and factual.
+
 ## Goal
 A persistent, live area or world map on the Ayn Thor's bottom screen for Dragon Quest VIII Masterpiece Reborn
 (DQ8MR, Unity 2017.4.8 Mono, MelonLoader 0.5.7 under Proton), through a "Dual screen" mode in the
