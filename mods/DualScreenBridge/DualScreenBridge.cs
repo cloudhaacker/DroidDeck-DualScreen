@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.26", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.27", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -138,6 +138,9 @@ namespace DualScreenBridge
                     Hook(harmony, mapUi, "Release", "SkipOwnArg", null);
                 }
                 else MelonLogger.Msg("the game's MapUi toolkit was not found");
+                // Closing the minimap from the d-pad would unload the area data the copy draws from.
+                Type hud = GameApi.Find("DQ8MR.Mods.Toolkit.FieldHud");
+                if (hud != null) Hook(harmony, hud, "ToggleMiniMap", "KeepMiniMapOpen", null);
             }
             catch (Exception e)
             {
@@ -235,6 +238,11 @@ namespace DualScreenBridge
         private static void LeaveOwn(object __instance)
         {
             if (OwnDepth > 0 && Map.Owns(__instance)) OwnDepth--;
+        }
+
+        private static bool KeepMiniMapOpen()
+        {
+            return !(Client != null && Client.Connected && !NoCopy);
         }
 
         private static bool SkipInOwnCall()
@@ -346,8 +354,8 @@ namespace DualScreenBridge
         private static readonly JpegEncoder Encoder = new JpegEncoder();
         private static int encoding;
         private static int dropped;
-        private const float MovingInterval = 0.25f;
-        private const float StillInterval = 0.5f;
+        private const float MovingInterval = 0.12f;
+        private const float StillInterval = 1.5f;
         private const int StillReads = 3;
         private static int pinkSkipped;
         private static int unchangedSkipped;
@@ -588,6 +596,11 @@ namespace DualScreenBridge
             {
                 yield return end;
                 FrameTrace.EndOfFrame();
+                if (BridgeMod.Map.TakeDirty())
+                {
+                    unchangedRuns = 0;
+                    nextFrame = 0f;
+                }
                 if (Time.realtimeSinceStartup < nextFrame) continue;
                 nextFrame = Time.realtimeSinceStartup + (unchangedRuns >= StillReads ? StillInterval : MovingInterval);
                 BridgeClient client = BridgeMod.Client;

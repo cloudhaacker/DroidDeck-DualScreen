@@ -42,6 +42,18 @@ namespace DualScreenBridge
         private Transform cursor;
         private float cursorScanAt;
         private float lastZoom = -1f, lastX = -1f, lastY = -1f;
+        private Component ownTown, ownWorld;
+        private float cursorSetAt;
+        private int cursorLogs;
+        private volatile bool dirty;
+        private Vector3 lastCursorPos;
+
+        public bool TakeDirty()
+        {
+            bool was = dirty;
+            dirty = false;
+            return was;
+        }
 
         public string Key = "";
 
@@ -154,6 +166,10 @@ namespace DualScreenBridge
             follow = true;
             cursor = null;
             cursorScanAt = 0f;
+            ownTown = ownWorld = null;
+            cursorSetAt = 0f;
+            dirty = true;
+            cursorLogs = 0;
             viewX = width / 2f;
             viewY = height * (CropTop + CropBottom) / 2f;
             lastZoom = lastX = lastY = -1f;
@@ -203,6 +219,11 @@ namespace DualScreenBridge
         public void Tick()
         {
             if (root == null) return;
+            if (instance != null && Time.realtimeSinceStartup >= cursorSetAt)
+            {
+                cursorSetAt = Time.realtimeSinceStartup + 0.2f;
+                PlaceCursor();
+            }
             if (cameraObject != null) ApplyView();
             if (instance != null) Relayer();
             if (strayScans < 12 && Time.realtimeSinceStartup >= strayAt)
@@ -273,6 +294,7 @@ namespace DualScreenBridge
         // Touch gestures from the second screen: zoom:<factor> multiplies the zoom, pan:<dx>,<dy> drags by fractions of the picture, view:reset goes back to the start view.
         public void Gesture(string command)
         {
+            dirty = true;
             try
             {
                 System.Globalization.CultureInfo c = System.Globalization.CultureInfo.InvariantCulture;
@@ -295,6 +317,55 @@ namespace DualScreenBridge
             catch (Exception e)
             {
                 MelonLogger.Warning("bad gesture '" + command + "': " + e.Message);
+            }
+        }
+
+        // The game places the hero's marker only when its own map opens, which the copy skips, so the same calls run here.
+        private void PlaceCursor()
+        {
+            if (!Ready || !GameApi.HasPlayer()) return;
+            BridgeMod.OwnDepth++;
+            try
+            {
+                Type townType = GameApi.Find("GUIMapTownAndDungeon"), worldType = GameApi.Find("GUIMapWorld");
+                if (ownTown == null && townType != null) ownTown = instance.GetComponentInChildren(townType, true);
+                if (ownWorld == null && worldType != null) ownWorld = instance.GetComponentInChildren(worldType, true);
+                object[] info = new object[] { Vector3.zero, Vector3.zero };
+                bool world = ownWorld != null && ownWorld.gameObject.activeInHierarchy && (ownTown == null || !ownTown.gameObject.activeInHierarchy);
+                if (world)
+                {
+                    GameApi.Invoke(ownWorld, worldType, "GetPlayerInfo", info);
+                    GameApi.SetField(ownWorld, worldType, "playerPos", info[0]);
+                    GameApi.SetField(ownWorld, worldType, "playerRot", info[1]);
+                    GameApi.Invoke(ownWorld, worldType, "SetWorldCursor");
+                }
+                else if (ownTown != null && ownTown.gameObject.activeInHierarchy)
+                {
+                    GameApi.Invoke(ownTown, townType, "GetPlayerInfo", info);
+                    GameApi.SetField(null, townType, "playerPos", info[0]);
+                    GameApi.SetField(null, townType, "playerRot", info[1]);
+                    int mode = Convert.ToInt32(GameApi.Invoke(null, GameApi.Find("guidmap"), "get_GetDQMapMode"));
+                    if (mode == 1) GameApi.Invoke(ownTown, townType, "SetCursorDungeon");
+                    else if (mode == 2) GameApi.Invoke(ownTown, townType, "SetCursorTown");
+                }
+                if (cursor != null && cursor.position != lastCursorPos)
+                {
+                    lastCursorPos = cursor.position;
+                    dirty = true;
+                }
+                if (cursorLogs < 6 && cursor != null)
+                {
+                    cursorLogs++;
+                    MelonLogger.Msg(string.Format("hero marker: world={0} pos={1} active={2}", world, cursor.position, cursor.gameObject.activeInHierarchy));
+                }
+            }
+            catch (Exception e)
+            {
+                if (cursorLogs < 6) { cursorLogs++; MelonLogger.Warning("could not place the hero marker: " + (e.InnerException ?? e).Message); }
+            }
+            finally
+            {
+                BridgeMod.OwnDepth--;
             }
         }
 
@@ -335,6 +406,7 @@ namespace DualScreenBridge
             viewY = Mathf.Clamp(viewY, top + halfH, bottom - halfH);
             if (zoom == lastZoom && viewX == lastX && viewY == lastY) return;
             lastZoom = zoom; lastX = viewX; lastY = viewY;
+            dirty = true;
             // The sent rows are centred above the middle of the picture, so the camera sits a little lower than the view centre.
             float cx = viewX, cy = viewY + (h / 2f - centreY) / zoom;
             cameraObject.transform.position = new Vector3(basePos.x + (cx - w / 2f) * unit, basePos.y - (cy - h / 2f) * unit, basePos.z);

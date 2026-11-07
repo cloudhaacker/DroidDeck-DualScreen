@@ -347,3 +347,9 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - Unknowns for the test: whether the picture really follows the hero in towns and on the field map, how laggy it feels (pictures arrive about 4 per second), and whether the hero marker is found in every view.
 - Later: idle behaviour options (return to the start view after a while, or keep the user's zoom), in-game options menu, hide icons for unvisited places.
 
+
+## v0.6.26 result and v0.6.27 (follow the hero, faster touch, change-driven pictures)
+- v0.6.26 result: touch pan/zoom works but the view stayed centred (the copy never placed `map_cursor`, parked off-picture) and touch felt slow (0.25 s capture, encodes dropped).
+- v0.6.27: `HeadlessMap.PlaceCursor` runs every 0.2 s: `GetPlayerInfo`, store `playerPos/playerRot` (static for GUIMapTownAndDungeon, instance for GUIMapWorld), then `SetCursorDungeon`/`SetCursorTown` (guidmap mode 1/2) or `SetWorldCursor`, inside OwnDepth. Logs "hero marker: ..." up to 6 times per copy. Untested: check that the position lands inside the picture.
+- Pictures are change-driven: `HeadlessMap.dirty` is set on creation, gestures, view changes and hero marker movement; a dirty flag restarts a 0.12 s capture burst until 3 identical reads, then one keep-alive read every 1.5 s.
+- `FieldHud.ToggleMiniMap` is blocked while the bridge is connected (prefix `KeepMiniMapOpen`).
