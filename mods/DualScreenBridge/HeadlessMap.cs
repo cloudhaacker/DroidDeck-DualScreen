@@ -345,26 +345,36 @@ namespace DualScreenBridge
                 if (ownWorld == null && worldType != null) ownWorld = instance.GetComponentInChildren(worldType, true);
                 object[] info = new object[] { Vector3.zero, Vector3.zero };
                 bool world = createdMode == 1 && ownWorld != null;
-                if (world)
+                // The game places tiles and markers with world positions that assume its menu sits at the origin.
+                Vector3 savedRoot = root.transform.position;
+                root.transform.position = new Vector3(0f, 0f, savedRoot.z);
+                try
                 {
-                    GameApi.Invoke(ownWorld, worldType, "GetPlayerInfo", info);
-                    GameApi.SetField(ownWorld, worldType, "playerPos", info[0]);
-                    GameApi.SetField(ownWorld, worldType, "playerRot", info[1]);
-                    bool local = Convert.ToBoolean(GameApi.GetField(ownWorld, worldType, "isLocalMap"));
-                    if (local) RefreshLocalMap(worldType, (Vector3)info[0]);
-                    GameApi.Invoke(ownWorld, worldType, local ? "SetLocalCursor" : "SetWorldCursor");
-                    GameObject icons = GameApi.GetField(ownWorld, worldType, local ? "bigMapIcon" : "smallMapIcon") as GameObject;
-                    Transform rootIcons = icons != null ? icons.transform : null;
-                    if (rootIcons != iconRoot) { iconRoot = rootIcons; cursor = null; cursorScanAt = 0f; }
+                    if (world)
+                    {
+                        GameApi.Invoke(ownWorld, worldType, "GetPlayerInfo", info);
+                        GameApi.SetField(ownWorld, worldType, "playerPos", info[0]);
+                        GameApi.SetField(ownWorld, worldType, "playerRot", info[1]);
+                        bool local = Convert.ToBoolean(GameApi.GetField(ownWorld, worldType, "isLocalMap"));
+                        if (local) RefreshLocalMap(worldType, (Vector3)info[0]);
+                        GameApi.Invoke(ownWorld, worldType, local ? "SetLocalCursor" : "SetWorldCursor");
+                        GameObject icons = GameApi.GetField(ownWorld, worldType, local ? "bigMapIcon" : "smallMapIcon") as GameObject;
+                        Transform rootIcons = icons != null ? icons.transform : null;
+                        if (rootIcons != iconRoot) { iconRoot = rootIcons; cursor = null; cursorScanAt = 0f; }
+                    }
+                    else if (ownTown != null)
+                    {
+                        GameApi.Invoke(ownTown, townType, "GetPlayerInfo", info);
+                        GameApi.SetField(null, townType, "playerPos", info[0]);
+                        GameApi.SetField(null, townType, "playerRot", info[1]);
+                        int mode = Convert.ToInt32(GameApi.Invoke(null, GameApi.Find("guidmap"), "get_GetDQMapMode"));
+                        if (mode == 1) GameApi.Invoke(ownTown, townType, "SetCursorDungeon");
+                        else if (mode == 2) GameApi.Invoke(ownTown, townType, "SetCursorTown");
+                    }
                 }
-                else if (ownTown != null)
+                finally
                 {
-                    GameApi.Invoke(ownTown, townType, "GetPlayerInfo", info);
-                    GameApi.SetField(null, townType, "playerPos", info[0]);
-                    GameApi.SetField(null, townType, "playerRot", info[1]);
-                    int mode = Convert.ToInt32(GameApi.Invoke(null, GameApi.Find("guidmap"), "get_GetDQMapMode"));
-                    if (mode == 1) GameApi.Invoke(ownTown, townType, "SetCursorDungeon");
-                    else if (mode == 2) GameApi.Invoke(ownTown, townType, "SetCursorTown");
+                    root.transform.position = savedRoot;
                 }
                 bool interior;
                 if (world) interior = Convert.ToInt32(GameApi.GetField(null, worldType, "interior")) != 0;
