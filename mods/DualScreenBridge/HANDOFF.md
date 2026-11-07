@@ -309,3 +309,10 @@ Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps
 Game DLLs are user supplied (not in the repo). IL was read with a small Mono.Cecil dumper (`IlDump`, `IlCallers`)
 because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed commits refer to a different clone
 (the upstream scratch copy), not this fork.
+
+## Upstream sync and setup lessons (2026-11-06/07)
+- The fork was synced to upstream 0.6.9 on branch `sync-upstream-2026-11-06` (not yet merged into `dual-screen-map`). CI "Build APK" passed; John installed it and the Game map mode works with the new bottom bar.
+- After the update the bottom screen waited on 127.0.0.1:47200 and `Latest.log` stopped changing: MelonLoader no longer loaded because the `WINEDLLOVERRIDES=version=n,b` setting was gone. Put it in Game environment, profile **All Proton games** (shared values are merged with the Windows-component overrides). A per-game `WINEDLLOVERRIDES` REPLACES the merged value, which also drops the .NET and Media Foundation overrides.
+- Videos failed and the new-game intro hung: CachyOS Proton's GStreamer libav plugin could not load (`libvpx.so.9`, `libspeex.so.1`, `libjpeg.so.62` missing), so there was no H.264 decoder. Nothing to do with the mod. John reset his profiles to defaults and the videos play again; the stutters went away at the same time (cause not isolated, likely the Proton/profile state).
+- v0.6.23 tested after the reset: connects, map copies in town, field and the cave map, minimap never shown, no big hitches, world map ~28 fps, unchanged-picture skipping works (`unchanged skipped` counts rise).
+- Next: merge the sync branch into `dual-screen-map`, then roadmap item 5 (Game map default and auto-start).
