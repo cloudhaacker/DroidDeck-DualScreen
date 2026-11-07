@@ -360,3 +360,6 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 ## v0.6.28 result and v0.6.29
 - v0.6.28 log: town and dungeon follow works. The field map is the game's "local map" (isLocalMap=True, status UpdateLocalMap), so the marker needs `SetLocalCursor` on `bigMapIcon`, not `SetWorldCursor` on `smallMapIcon`; the marker was stuck at the centre.
 - v0.6.29: local map uses SetLocalCursor and scans the marker under bigMapIcon; SettleSeconds 2.5 -> 1.0; two JPEG encoders run in parallel (encode averaged 82 ms, which capped the rate near 12 fps and dropped frames), with a sequence guard so older frames never replace newer ones.
+
+## v0.6.29 result and v0.6.30
+- v0.6.29 with SettleSeconds 1.0 broke loading a save inside a church: the copy was created 1.25 s after the player first counted as free, the priest's dialogue started about 1 s later (player free False, mode=2) and input never came back. The settle wait is a real guard against building the copy just before a scripted scene; v0.6.30 restores 2.5 s. Do not shorten it without a better signal (for example, wait until the game has been free and no scene has started for N seconds, or until a save-load flag clears).

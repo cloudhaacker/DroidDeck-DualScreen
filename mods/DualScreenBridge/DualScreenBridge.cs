@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.29", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.30", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -366,7 +366,7 @@ namespace DualScreenBridge
         private static int pinkLogged;
         private static string lastMean = "-";
 
-        private const float SettleSeconds = 1f;
+        private const float SettleSeconds = 2.5f;
         private static float freeSince = -1f;
         private static int lastMapNo = int.MinValue;
         private static bool lastFree;
