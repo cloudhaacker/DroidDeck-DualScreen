@@ -287,12 +287,17 @@ Setup that plays well for John: default GPU drivers, CachyOS proton, game 30 fps
 4. Strip layer 31 in `OnPreCull` so a new copy can never flash on the top screen (the post-fight flash).
 
 ### Next: playable features
-5. Make the game map the default dual-screen option and auto-start it when a game loads.
+5. DONE (app, tested 2026-11-07): the game map opens on the bottom screen as soon as the mod connects (`MapFeed.onConnect`, `SessionActivity.gameMapConnected`); picking another panel by hand turns it off for that session.
 6. Live hero marker: confirm the game moves it inside the copy; town/field auto-switch check; minimap-off check.
 7. Crop the picture to just the map; hide the zoom, Icons Off and close buttons.
 8. Name the views the way the game does (area map, world map); read the game's own labels.
 9. Touch pan and zoom, icons on/off, hide icons for unvisited places.
 10. Poll John's Discord for wishes before v1.0.
+
+### App features John asked for (fork only, no mod change)
+- A. Start page setting: choose which tab DroidDeck opens on (default Steam; John wants Library, because opening Steam makes the game start behind it and slows launch). The tab is `selected` in `FrontEndScreen.kt` (starts as "steam", or "games" for the shortcut picker); add a stored preference and a Setup row. Library tab key is "games".
+- B. Quit DroidDeck: a Quit button in settings (and maybe back at the root screen). Must not kill a running game session silently; confirm first, then `finishAffinity()` plus stop the session service.
+- Both are app-only; ship them in one APK.
 
 ### Later: expand the mod
 - Modular options: map only, item menu, party status, battle menus on the bottom screen.
