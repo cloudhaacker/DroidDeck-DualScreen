@@ -340,8 +340,8 @@ class SecondScreenPresentation(
     private fun renderGameMap() {
         bar(SecondScreenMode.GAME_MAP) {
             listOf(
-                BarExtra(context.getString(R.string.second_map_area), tag = "bottom-map-area") { MapFeed.sendCommand("view:area") },
-                BarExtra(context.getString(R.string.second_map_world), tag = "bottom-map-world") { MapFeed.sendCommand("view:world") },
+                BarExtra(context.getString(R.string.second_map_area), vector = androidx.compose.material.icons.Icons.Outlined.Map, tag = "bottom-map-area") { MapFeed.sendCommand("view:area") },
+                BarExtra(context.getString(R.string.second_map_world), vector = androidx.compose.material.icons.Icons.Outlined.Public, tag = "bottom-map-world") { MapFeed.sendCommand("view:world") },
             )
         }
         val view = SessionMapView(context)

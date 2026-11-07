@@ -248,23 +248,40 @@ namespace DualScreenBridge
             return ImageConversion.EncodeToJPG(readback, 80);
         }
 
+        // The map window fills only the middle of the picture; its zoom buttons, Icons Off and close sit below it.
+        // Rows kept, as fractions of the picture height measured from the top (all of the map pictures fit inside).
+        private const float CropTop = 0.19f;
+        private const float CropBottom = 0.727f;
+
         public byte[] ReadRaw(out int width, out int height)
         {
             width = height = 0;
             if (target == null || !target.IsCreated()) return null;
-            if (readback == null) readback = new Texture2D(target.width, target.height, TextureFormat.RGB24, false);
+            int top = 0, rows = target.height;
+            if (BridgeMod.Crop)
+            {
+                top = Mathf.Clamp(Mathf.RoundToInt(target.height * CropTop), 0, target.height - 16);
+                rows = Mathf.Clamp(Mathf.RoundToInt(target.height * CropBottom) - top, 16, target.height - top);
+            }
+            if (readback != null && (readback.width != target.width || readback.height != rows))
+            {
+                UnityEngine.Object.Destroy(readback);
+                readback = null;
+            }
+            if (readback == null) readback = new Texture2D(target.width, rows, TextureFormat.RGB24, false);
             RenderTexture previous = RenderTexture.active;
             try
             {
                 RenderTexture.active = target;
-                readback.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0);
+                // Render textures count rows from the bottom.
+                readback.ReadPixels(new Rect(0, target.height - top - rows, target.width, rows), 0, 0);
             }
             finally
             {
                 RenderTexture.active = previous;
             }
             width = target.width;
-            height = target.height;
+            height = rows;
             return readback.GetRawTextureData();
         }
 
@@ -341,46 +358,53 @@ namespace DualScreenBridge
         }
 
         // The game also makes a full-screen "captured background" object for its map window, on the main layer.
-        // One-off inventory of the copy's visible NGUI widgets, in pixels of the bottom picture, to plan the crop and the hidden buttons.
+        // One-off inventory of the copy's visible NGUI widgets, in pixels of the full bottom picture (this NGUI is old: a widget's size is its scale times relativeSize).
         private void DumpWidgets()
         {
             Type widget = GameApi.Find("UIWidget");
             if (widget == null || cameraObject == null || target == null) { MelonLogger.Msg("widgets: UIWidget not found"); return; }
             Camera cam = cameraObject.GetComponent<Camera>();
             Component[] all = root.GetComponentsInChildren(widget, true);
-            int shown = 0;
-            MelonLogger.Msg(string.Format("widgets: {0} in the copy, picture {1}x{2} (pixels from the top left): name [type] x0,y0 - x1,y1 detail", all.Length, target.width, target.height));
+            int shown = 0, failed = 0;
+            string firstError = "";
+            MelonLogger.Msg(string.Format("widgets: {0} in the copy, picture {1}x{2}: path [type] centre x,y (px from top left) size w x h pivot depth detail", all.Length, target.width, target.height));
             foreach (Component c in all)
             {
-                if (shown >= 160) break;
+                if (shown >= 200) break;
                 if (c == null || !c.gameObject.activeInHierarchy) continue;
                 try
                 {
-                    Vector3[] corners = GameApi.Invoke(c, null, "get_worldCorners") as Vector3[];
-                    if (corners == null || corners.Length < 4) continue;
-                    Vector3 a = cam.WorldToViewportPoint(corners[0]);
-                    Vector3 b = cam.WorldToViewportPoint(corners[2]);
-                    float x0 = Mathf.Min(a.x, b.x) * target.width, x1 = Mathf.Max(a.x, b.x) * target.width;
-                    float y0 = (1f - Mathf.Max(a.y, b.y)) * target.height, y1 = (1f - Mathf.Min(a.y, b.y)) * target.height;
-                    if (x1 < 0 || y1 < 0 || x0 > target.width || y0 > target.height) continue;
+                    Transform t = c.transform;
+                    Vector3 p = cam.WorldToViewportPoint(t.position);
+                    Vector3 right = cam.WorldToViewportPoint(t.position + t.right * t.lossyScale.x);
+                    Vector3 up = cam.WorldToViewportPoint(t.position + t.up * t.lossyScale.y);
+                    Vector2 rel = (Vector2)GameApi.Invoke(c, null, "get_relativeSize");
+                    float w = Mathf.Abs(right.x - p.x) * target.width * rel.x;
+                    float h = Mathf.Abs(up.y - p.y) * target.height * rel.y;
                     string detail = "";
                     string kind = c.GetType().Name;
                     try
                     {
-                        if (kind == "UISprite") detail = "sprite=" + GameApi.Invoke(c, null, "get_spriteName");
-                        else if (kind == "UILabel") detail = "text=" + GameApi.Invoke(c, null, "get_text");
-                        else if (kind == "UITexture") detail = "texture=" + GameApi.Invoke(c, null, "get_mainTexture");
+                        if (kind == "UISprite" || kind == "UISlicedSprite" || kind == "UIFilledSprite") detail = "sprite=" + GameApi.GetField(c, null, "mSpriteName");
+                        else if (kind == "UILabel") detail = "text=" + GameApi.GetField(c, null, "mText");
+                        else detail = "texture=" + GameApi.Invoke(c, null, "get_mainTexture");
                     }
                     catch (Exception) { }
                     if (detail.Length > 60) detail = detail.Substring(0, 60);
                     string path = c.name;
-                    Transform parent = c.transform.parent;
-                    if (parent != null && parent.name != "DualScreenMapRoot") path = parent.name + "/" + path;
-                    MelonLogger.Msg(string.Format("widget: {0} [{1}] {2:0},{3:0} - {4:0},{5:0} depth={6} {7}", path, kind, x0, y0, x1, y1, GameApi.Invoke(c, null, "get_depth"), detail));
+                    Transform parent = t.parent;
+                    for (int i = 0; i < 2 && parent != null && parent.name != "DualScreenMapRoot"; i++, parent = parent.parent) path = parent.name + "/" + path;
+                    MelonLogger.Msg(string.Format("widget: {0} [{1}] {2:0},{3:0} size {4:0}x{5:0} pivot={6} depth={7} {8}", path, kind, p.x * target.width, (1f - p.y) * target.height, w, h,
+                        GameApi.Invoke(c, null, "get_pivot"), GameApi.Invoke(c, null, "get_depth"), detail));
                     shown++;
                 }
-                catch (Exception) { }
+                catch (Exception e)
+                {
+                    failed++;
+                    if (firstError.Length == 0) firstError = e.GetType().Name + ": " + e.Message;
+                }
             }
+            if (failed > 0) MelonLogger.Msg("widgets: " + failed + " could not be read (first error: " + firstError + ")");
         }
 
         private void HideStrays()

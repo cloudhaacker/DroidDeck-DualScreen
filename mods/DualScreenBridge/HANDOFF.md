@@ -332,3 +332,10 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - Diagnostic only. `HeadlessMap.DumpWidgets()` logs every visible NGUI widget of the copy once per copy (first four copies per session) as `widget: parent/name [UISprite|UILabel|UITexture] x0,y0 - x1,y1 depth=N sprite=... / text=...` in pixels of the 720-wide bottom picture, from the top left. Header line `widgets: N in the copy, picture WxH`.
 - Plan: from that list pick the crop rectangle (map only) and the widgets to hide (close button, zoom, Icons Off, arrows). John to send the log plus bottom-screen screenshots of the area map, the world map and the field map.
 
+## v0.6.24 result and v0.6.25 (crop)
+- v0.6.24 log: `widgets: N in the copy` printed but no `widget:` lines. This NGUI is old (UIWidget has `relativeSize`, `pivotOffset`, no `worldCorners`), so every widget threw and was skipped silently. v0.6.25 rewrites `DumpWidgets` for it (centre from the transform, size = lossyScale x relativeSize) and counts failures.
+- Screenshots (area map Waterfall Cave and Farebury, field map) fit the picture 720x1080 at scale 0.861. Map paper spans about y 226-764 and x 9-711 of the picture; zoom buttons about y 795-865; the Icons Off / World Map / close bar y 970-1080.
+- v0.6.25: `ReadRaw` keeps rows 0.19 to 0.727 of the picture height (full width, about 720x580) so the buttons are cropped out without touching the widgets. `DualScreenBridge.nocrop` next to the exe turns the crop off.
+- App: Area and World buttons use icons (Map, Public) because the upstream bottom bar draws icon-only buttons (the text-only ones showed as empty circles).
+- Next: John's wish for a default zoom close to the minimap (follows the hero, icons uncovered as you go), user zoom, and later an in-game options menu (return to minimap zoom after idle, or keep the zoom). That belongs to touch pan and zoom.
+

@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.24", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.25", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -26,6 +26,8 @@ namespace DualScreenBridge
         internal static bool NoCopy;
         // A file named DualScreenBridge.keepminimap leaves the game's minimap visible on the main screen while the bridge is connected.
         internal static bool KeepMiniMap;
+        // The bottom picture is cropped to the map unless a file named DualScreenBridge.nocrop sits next to the exe.
+        internal static bool Crop = true;
         internal static int QuickDeaths;
         internal static float RetryAt;
 
@@ -38,6 +40,7 @@ namespace DualScreenBridge
                 string folder = System.IO.Directory.GetParent(Application.dataPath).FullName;
                 NoCopy = System.IO.File.Exists(System.IO.Path.Combine(folder, "DualScreenBridge.nocopy"));
                 KeepMiniMap = System.IO.File.Exists(System.IO.Path.Combine(folder, "DualScreenBridge.keepminimap"));
+                Crop = !System.IO.File.Exists(System.IO.Path.Combine(folder, "DualScreenBridge.nocrop"));
             }
             catch (Exception)
             {
