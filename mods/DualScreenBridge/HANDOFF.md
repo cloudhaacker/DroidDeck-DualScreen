@@ -457,3 +457,9 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - Log: the mod sent `idle picture: 'place:'` correctly at 18:47:31 and nothing after, so the flash is app side: on disconnect `MapFeed.connected` goes false while `idle` stays true, and `SessionMapView.onDraw` only draws the idle picture when `idle && connected`, so it fell through to the stale `bitmap`.
 - Fix in `MapBridge.kt` (disconnect `finally`): clear `bitmap` and `idle` so the waiting screen shows. Needs a new APK (`gh workflow run "Build APK" --ref dual-screen-map`).
 - Next queued: centered flash on new copy (hold first frames until the star is placed), shorter settle experiment.
+
+## v0.6.43 (two changes, John agreed to bundle: no centered flash; shorter settle for map changes; DLL only, built, untested)
+- Centered flash: `HeadlessMap.Ready` now also needs `heroSeen` (or `!follow`), so no picture goes out before the star/cursor has been found; the 3 s `Age` fallback still applies. v0.6.42 log: create at 18:47:23.66, first `hero at picture` 24.52, so pictures were sendable 0.4 s after create, before the marker was found.
+- Shorter settle: `QuickSettleSeconds` = 1.2 s is used when `settledOnce` (a copy was built since the last boot, save load or fight); `SettleSeconds` 2.5 s stays for boot, save loads (no player) and after battles (`settledOnce` reset in those branches).
+- Test: king cutscene when leaving Farebury toward the waterfall cave; any conversation that starts on arriving in a house. If input breaks or the screen goes black, set `QuickSettleSeconds` back to 2.5 (the two changes are independent).
+- Next queued: per-game bottom-screen choice in the app, icons on/off / hide unvisited, in-game options menu.

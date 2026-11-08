@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.42", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.43", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -367,6 +367,8 @@ namespace DualScreenBridge
         private static int pinkStreak;
         private static bool leftFreeSinceCreate;
         private static bool titleSeen;
+        private static bool settledOnce;
+        private const float QuickSettleSeconds = 1.2f;
         private const int PinkRebuildMs = 1000;
         private static int unchangedSkipped;
         private static long lastSentHash;
@@ -554,6 +556,7 @@ namespace DualScreenBridge
             if (battle)
             {
                 map.Destroy("battle");
+                settledOnce = false;
                 freeSince = -1f;
                 BridgeMod.Status = "battle";
                 return;
@@ -563,6 +566,7 @@ namespace DualScreenBridge
                 // Back at the main menu from a game: the last map or place is over, so show the brick again.
                 if (map.Active || lastMapNo != int.MinValue) shownMapNo = int.MinValue;
                 map.Destroy("no player");
+                settledOnce = false;
                 freeSince = -1f;
                 lastMapNo = int.MinValue;
                 BridgeMod.Status = "waiting for the field";
@@ -627,7 +631,8 @@ namespace DualScreenBridge
             if (mode == 2 && BridgeMod.DesiredView == 0) mode = 1;
             string key = GameApi.MapNo() + "/" + mode + "/" + BridgeMod.DesiredView;
             if (map.Alive && map.Key == key) return;
-            if (freeSince < 0f || now - freeSince < SettleSeconds)
+            // Full wait after boot, save loads and fights; a shorter one for map changes and rebuilds while the player has been in the field all along.
+            if (freeSince < 0f || now - freeSince < (settledOnce ? QuickSettleSeconds : SettleSeconds))
             {
                 BridgeMod.Status = "waiting for the game to settle";
                 if (mapNo != shownMapNo) Idle(client, "place:" + GameApi.LocationName());
@@ -644,6 +649,7 @@ namespace DualScreenBridge
             pinkSinceTick = 0;
             lastCreateAt = now;
             leftFreeSinceCreate = false;
+            settledOnce = true;
             BridgeMod.Status = mode == 2 ? "town or dungeon map" : (BridgeMod.DesiredView == 1 ? "area map" : (BridgeMod.DesiredView == 0 ? "world map" : "field map"));
             MelonLogger.Msg("showing: " + BridgeMod.Status + "; " + GameApi.MiniMapState());
         }

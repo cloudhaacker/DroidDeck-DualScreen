@@ -78,7 +78,8 @@ namespace DualScreenBridge
             get
             {
                 if (root == null) return false;
-                return (readyAt > 0f && Time.realtimeSinceStartup >= readyAt) || Age > 3f;
+                // The hero marker has to be placed too, or the first pictures show the view centered before it finds the star.
+                return (readyAt > 0f && Time.realtimeSinceStartup >= readyAt && (heroSeen || !follow)) || Age > 3f;
             }
         }
 
