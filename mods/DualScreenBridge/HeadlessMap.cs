@@ -36,6 +36,7 @@ namespace DualScreenBridge
         private float zoom = DefaultZoom;
         private bool follow = true;
         private float viewX, viewY;
+        private bool heroSeen;
         private float baseOrtho;
         private Vector3 basePos;
         private Camera ownCamera;
@@ -216,6 +217,7 @@ namespace DualScreenBridge
             Key = key;
             createdAt = Time.realtimeSinceStartup;
             lastSignature = null;
+            heroSeen = false;
             readyAt = 0f;
             cameraChanges = 0;
             fixLogged = 0;
@@ -455,8 +457,9 @@ namespace DualScreenBridge
             if (follow)
             {
                 float hx, hy;
-                if (HeroPixel(unit, out hx, out hy)) { viewX = hx; viewY = hy; }
-                else { viewX = w / 2f; viewY = centreY; }
+                // The game parks or swaps the marker while it changes scenes; the view stays where it was instead of jumping to the middle.
+                if (HeroPixel(unit, out hx, out hy)) { viewX = hx; viewY = hy; heroSeen = true; }
+                else if (!heroSeen) { viewX = w / 2f; viewY = centreY; }
             }
             float halfW = w / zoom / 2f, halfH = (bottom - top) / zoom / 2f;
             viewX = Mathf.Clamp(viewX, halfW, w - halfW);
