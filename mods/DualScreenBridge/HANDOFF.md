@@ -2,7 +2,7 @@
 
 Read this first when picking the project up in a new session.
 
-## Current state (2026-11-08, mod v0.6.39; read this block first)
+## Current state (2026-11-08, mod v0.6.40; read this block first)
 - Repo `cloudhaacker/DroidDeck-DualScreen`, branch `dual-screen-map`. CI "Build APK" is the only compile check for the app; the mod builds with `build.sh` (needs the game's Managed folder and MelonLoader folder).
 - Working and tested by John: auto-open of the game map when the mod connects, start page setting, Quit tile, crop of the map picture, Area/World icons, touch pan/zoom, hero marker following in towns and dungeons (v0.6.28), faster pictures (parallel JPEG encoders, change-driven capture, minimap d-pad toggle blocked).
 - v0.6.32 tested by John: field map, world map, towns and dungeons all follow the hero; log clean (no warnings; re-layout about every 0.44 s while walking; encode about 82 ms, no dropped frames).
@@ -11,10 +11,11 @@ Read this first when picking the project up in a new session.
 - v0.6.36 tested by John: building freezes are fixed (map rebuilds), but entering and leaving buildings takes many seconds to settle.
 - v0.6.37 tested by John: much snappier. Log: the copy is rebuilt about 2.7 s after the player became free (was about 6 s); pink rebuild fires after 1.0 to 1.2 s. Remaining oddity: the bottom map pops to the middle for a moment on the buildings that go pink. John's church save has a king text cutscene right after leaving Farebury toward the waterfall cave: use it to test any shorter settle.
 - v0.6.38 tested by John: the bottom map still pops to the middle on ENTERING buildings and the well (never on leaving), then brick with text, then the map with the star. The v0.6.38 view-hold did not help.
-- Built but NOT yet tested: v0.6.39 (DLL only): holds the picture as soon as the hero marker swaps, and rebuilds on the swap.
+- v0.6.39 tested by John: still snaps to the middle on entering. Log: `hero marker changed` fires 46 ms AFTER `player free: True`, so the swap is too late to help; the rebuild-on-swap works (rebuild about 0.2 s after the free flip).
+- Built but NOT yet tested: v0.6.40 (DLL only): no pictures are captured or sent while `PlayerFree` is false.
 - Hard rule: `SettleSeconds` stays 2.5 s. At 1.0 s the copy appeared just as a scripted scene started (loading a save inside a church) and the game never received input; the map was black. Idea if John wants faster: use the long wait only for the first copy after a save loads and about 1.5 s after later map changes, tested with the church and doors.
 - The item-menu world map looks different because the game's toolkit (`MapUi`) replaces it with its own full-screen map. The copy deliberately uses the stock map, so they will differ.
-- Next on the roadmap, in order: v0.6.40 idle-screen fixes (credit flash after Continue; brick when returning to the main menu); then maybe a shorter settle for map changes while the player stays in the game (see the v0.6.37 section); per-game bottom-screen choice in the app (remember the panel per game via `SessionState.gameId`); icons on/off and hiding icons for unvisited places; in-game mod options menu (idle behaviour: return to the minimap-style view after a while, or keep the user's zoom); later modular options (item menu, party status, battle menus); poll the Masterpiece Reborn Discord before v1.0.
+- Next on the roadmap, in order: v0.6.41 idle-screen fixes (credit flash after Continue; brick when returning to the main menu); then maybe a shorter settle for map changes while the player stays in the game (see the v0.6.37 section); per-game bottom-screen choice in the app (remember the panel per game via `SessionState.gameId`); icons on/off and hiding icons for unvisited places; in-game mod options menu (idle behaviour: return to the minimap-style view after a while, or keep the user's zoom); later modular options (item menu, party status, battle menus); poll the Masterpiece Reborn Discord before v1.0.
 - Working agreements: one fix per release, John tests on the Ayn Thor and sends `MelonLoader/Latest.log` plus screenshots, Claude replies in plain language, sends the DLL named `DualScreenBridge-verX.Y.Z.dll`, commits and pushes, and updates this file every release. `AGENTS.md`: comments rare and factual.
 
 ## Goal
@@ -428,3 +429,9 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - Fix: `HeadlessMap.MarkerSwapped` becomes true when the wanted marker differs from the first one chosen after the copy was created (log: `hero marker changed from X to Y; holding the picture ...`). The capture loop sends nothing while it is true, so the bottom screen keeps the last good picture; `Poll` rebuilds the copy as soon as the player is free (no 1 s pink wait), same loop guard (3 copies out of date within 8 s of creation stops rebuilding for 30 s). Log: `the map copy is out of date (its hero marker changed | it drew pink for N s); building it again`.
 - Kept from v0.6.38: the view stays put when the marker is missing (`heroSeen`).
 - To check: enter the buildings and the well: the old picture should stay (no middle), then the brick, then the map with the star. If the middle still shows, the jump happens before `Interior` flips: then freeze on `player free: False` for town maps instead.
+
+## v0.6.40 (hold the picture while the player is not free; DLL only, built, untested)
+- Entering a building: `player free: False (walking=True mode=2 message=0)` for about 3 s, then `True (walking=True mode=1 ...)`; the marker swap and the pink pictures only start at the free flip, so the picture sent during the 3 s window (the wrong view near the middle) is not covered by the pink or marker rules.
+- Fix: `CaptureLoop` calls `GameApi.PlayerFree` before each capture (about 8 per second, a few reflection reads) and skips the capture while it is false; the previous picture stays on the second screen. Side effect: the map does not follow the hero during scripted walks and message windows (nothing to follow in most of them); it resumes at once when the player is free.
+- Kept: v0.6.39 marker-swap rebuild and v0.6.38 view-hold.
+- If the middle still shows: the picture is wrong while the player is still free (before `mode=2`), or the jump is not in the picture; then log the first hero positions around the door (the `hero at picture` log shows only the first 8).

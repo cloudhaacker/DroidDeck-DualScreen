@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.39", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.40", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -659,6 +659,9 @@ namespace DualScreenBridge
                 if (client == null || !client.Connected || !BridgeMod.Map.Active || !BridgeMod.Map.Ready || BridgeMod.Map.MarkerSwapped) continue;
                 try
                 {
+                    // Entering a building takes the player's control for about 3 s, and the copy draws a wrong view meanwhile; the last picture stays.
+                    string state;
+                    if (!GameApi.PlayerFree(out state)) continue;
                     long started = System.Diagnostics.Stopwatch.GetTimestamp();
                     int w, h;
                     byte[] raw = BridgeMod.Map.ReadRaw(out w, out h);
