@@ -537,6 +537,8 @@
     <string name="comp_game_runtime_options">Runtime options</string>
     <string name="comp_game_environment_other_hint">Other per-game Proton, DXVK, VKD3D-Proton and synchronization environment options.</string>
     <string name="comp_game_saved_next">%1$s\'s profile is saved for the next game launch.</string>
+    <string name="game_bottom_start_title">Bottom screen at start</string>
+    <string name="game_bottom_start_detail">What the second screen shows when this game starts. You can still switch during play.</string>
     <string name="game_no_steam_title">Start without Steam</string>
     <string name="game_no_steam_detail">Opens it in Proton/FEX without the Steam client; Steam features are off.</string>
     <string name="game_no_steam_on">On</string>

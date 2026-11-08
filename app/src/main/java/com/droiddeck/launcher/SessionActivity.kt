@@ -400,6 +400,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private var drawerDefaultProton by mutableStateOf<String?>(null)
     private val drawerComponentMenu by lazy { ComponentsMenu(this, uiHandler) }
     private var drawerGameProfileId by mutableStateOf<Long?>(null)
+    private var bottomStartRevision by mutableStateOf(0)
     private var fpsLimit by mutableStateOf(SessionState.fpsLimit)
 
     private fun noSteamSession(): Boolean = (SessionState.mode == SessionService.MODE_RUN &&
@@ -1507,6 +1508,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             onGameFexPreset = ::setDrawerGameFexPreset,
             gameNoSteamSaving = drawerGameNoSteamSaving,
             onGameNoSteam = ::setDrawerGameNoSteam,
+            gameBottomStart = drawerGameProfileId?.let { bottomStartRevision.let { _ -> SessionPrefs.gameBottomStart(this, it) } },
+            onGameBottomStart = { appId, mode -> SessionPrefs.setGameBottomStart(this, appId, mode); bottomStartRevision++ },
             onComponentSwap = { pid, comp, value -> swapDrawerComponent(pid, comp, value) },
             onGameComponent = ::setDrawerGameComponent,
             defaultProtonId = drawerDefaultProton,
@@ -3302,7 +3305,18 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     }
 
     /** The panel the bottom screen opens with: the game map as soon as a game mod is feeding it, unless the player picked another panel. */
-    private fun openingSecondScreenMode(): SecondScreenMode =
+    private fun openingSecondScreenMode(): SecondScreenMode {
+        // A game's own choice wins over the general behaviour; a non-map choice also keeps the game map from taking over when the mod connects.
+        val own = SessionState.gameId?.toLongOrNull()?.let { SessionPrefs.gameBottomStart(this, it) }
+        val ownMode = SecondScreenMode.entries.firstOrNull { it != SecondScreenMode.NONE && it.id == own }
+        if (ownMode != null && (ownMode != SecondScreenMode.DASHBOARD || bottomPages().isNotEmpty())) {
+            SessionState.gameMapDeclined = ownMode != SecondScreenMode.GAME_MAP
+            return ownMode
+        }
+        return generalOpeningSecondScreenMode()
+    }
+
+    private fun generalOpeningSecondScreenMode(): SecondScreenMode =
         if (com.droiddeck.launcher.session.MapFeed.connected && !SessionState.gameMapDeclined) SecondScreenMode.GAME_MAP
         else SecondScreenMode.opening(SessionPrefs.secondScreenPanel(this), SessionState.deckPad, bottomPages().isNotEmpty(),
             com.droiddeck.launcher.session.BottomDesktop.available())

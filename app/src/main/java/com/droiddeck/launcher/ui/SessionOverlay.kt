@@ -348,6 +348,8 @@ class DrawerActions(
     val onGameFexPreset: (Long, String?) -> Unit = { _, _ -> },
     val gameNoSteamSaving: Boolean = false,
     val onGameNoSteam: (Long, Boolean) -> Unit = { _, _ -> },
+    val gameBottomStart: String? = null,
+    val onGameBottomStart: (Long, String?) -> Unit = { _, _ -> },
     val onComponentSwap: (protonId: String, comp: String, value: String) -> Unit = { _, _, _ -> },
     val onGameComponent: (appId: Long, comp: String, file: String?) -> Unit = { _, _, _ -> },
     val defaultProtonId: String? = null,
@@ -752,6 +754,7 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                             if (a.steam || a.direct) SettingsGroup(stringResource(R.string.game_settings_title)) {
                                 DrawerFexPresetRow(host, a, focus.track(page, "fex"))
                                 DrawerNoSteamRow(host, a, focus.track(page, "no-steam"))
+                                DrawerBottomStartRow(host, a, focus.track(page, "bottom-start"))
                                 GameEnvironmentRow(
                                     modifier = focus.track(page, "game-env"),
                                     showHint = false,
@@ -1258,6 +1261,20 @@ private fun DrawerFexPresetRow(host: MenuHost, a: DrawerActions, modifier: Modif
             )
         }
     }
+}
+
+@Composable
+private fun DrawerBottomStartRow(host: MenuHost, a: DrawerActions, modifier: Modifier) {
+    val appId = a.selectedGameProfileId ?: return
+    val choices: List<Pair<String?, String>> = listOf(
+        null to stringResource(R.string.comp_game_use_general),
+        com.droiddeck.launcher.input.SecondScreenMode.GAME_MAP.id to stringResource(com.droiddeck.launcher.input.SecondScreenMode.GAME_MAP.label),
+        com.droiddeck.launcher.input.SecondScreenMode.KEYBOARD_TRACKPAD.id to stringResource(com.droiddeck.launcher.input.SecondScreenMode.KEYBOARD_TRACKPAD.label),
+        com.droiddeck.launcher.input.SecondScreenMode.TERMINAL.id to stringResource(com.droiddeck.launcher.input.SecondScreenMode.TERMINAL.label),
+        com.droiddeck.launcher.input.SecondScreenMode.DASHBOARD.id to stringResource(com.droiddeck.launcher.input.SecondScreenMode.DASHBOARD.label),
+    )
+    ChoiceRow(host, "bottom-start", stringResource(R.string.game_bottom_start_title), stringResource(R.string.game_bottom_start_detail),
+        choices, a.gameBottomStart, chipModifier = modifier) { mode -> a.onGameBottomStart(appId, mode) }
 }
 
 @Composable

@@ -116,6 +116,13 @@ object SessionPrefs {
         prefs(context).edit().putString("secondScreenPanel", mode).apply()
     }
 
+    /** The bottom-screen panel one game opens with (a [SecondScreenMode] id), or null to use the general behaviour. */
+    fun gameBottomStart(context: Context, appId: Long): String? = prefs(context).getString("bottomStart:$appId", null)
+
+    fun setGameBottomStart(context: Context, appId: Long, mode: String?) {
+        prefs(context).edit().apply { if (mode == null) remove("bottomStart:$appId") else putString("bottomStart:$appId", mode) }.apply()
+    }
+
     /** The bottom-screen desktop takes touch as a trackpad unless the user switched it to direct touch. */
     fun bottomDesktopDirectTouch(context: Context): Boolean = prefs(context).getBoolean("bottomDesktopDirectTouch", false)
 

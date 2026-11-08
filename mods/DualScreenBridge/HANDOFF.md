@@ -463,3 +463,11 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - Shorter settle: `QuickSettleSeconds` = 1.2 s is used when `settledOnce` (a copy was built since the last boot, save load or fight); `SettleSeconds` 2.5 s stays for boot, save loads (no player) and after battles (`settledOnce` reset in those branches).
 - Test: king cutscene when leaving Farebury toward the waterfall cave; any conversation that starts on arriving in a house. If input breaks or the screen goes black, set `QuickSettleSeconds` back to 2.5 (the two changes are independent).
 - Next queued: per-game bottom-screen choice in the app, icons on/off / hide unvisited, in-game options menu.
+
+## v0.6.43 result and per-game bottom screen choice (APK only; DLL stays 0.6.43)
+- John: tiny centered flash still occasionally, accepted as too minor; king cutscene fine (screen showed field until the map arrived). Log clean (9 copies, no warnings).
+- App: new per-game setting "Bottom screen at start" in the in-session drawer, Games page, "Game settings" group (below "Start without Steam"). Choices: Use Default, Dual screen (game map), Keyboard + trackpad, Terminal, Dashboard. Stored in SessionPrefs as `bottomStart:<appId>` (`gameBottomStart` / `setGameBottomStart`), keyed by the selected game profile (same id as the other per-game rows).
+- `SessionActivity.openingSecondScreenMode()` now checks the running game's choice (`SessionState.gameId`) first; a non-map choice sets `gameMapDeclined` so the map does not take over when the mod connects; with no choice it falls through to `generalOpeningSecondScreenMode()` (the old behaviour). Dashboard falls back to the general rule when no dashboard pages exist.
+- Only affects the screen the session opens with; switching during play works as before. Existing global `secondScreenPanel` memory is unchanged.
+- Not compiled locally (no Android SDK here); CI build is the check.
+- Next queued: icons on/off + hide icons for unvisited places, in-game options menu.
