@@ -15,6 +15,7 @@ namespace DualScreenBridge
         private const int TypeTitle = 2;
         private const int TypeCommand = 3;
         private const int TypeIdle = 4;
+        private const int TypeBackdrop = 5;
 
         private readonly object gate = new object();
         private readonly Queue<string> commands = new Queue<string>();
@@ -23,6 +24,8 @@ namespace DualScreenBridge
         private string lastTitle;
         private string idle;
         private string lastIdle;
+        private byte[] backdrop;
+        private byte[] lastBackdrop;
         private volatile bool running;
         private volatile bool connected;
         private volatile bool readerDone;
@@ -54,10 +57,16 @@ namespace DualScreenBridge
             lock (gate) { title = text; lastTitle = text; Monitor.PulseAll(gate); }
         }
 
-        // The second screen shows its own text picture instead of a map; the text is the place name, empty when unknown.
+        // The second screen shows its own text picture instead of a map: "boot" for the credit, or "place:" plus the place name (may be empty).
         public void SetIdle(string place)
         {
             lock (gate) { idle = place; lastIdle = place; Monitor.PulseAll(gate); }
+        }
+
+        // A picture the second screen draws behind its text screens; it is sent again to every new connection.
+        public void SetBackdrop(byte[] jpg)
+        {
+            lock (gate) { backdrop = jpg; lastBackdrop = jpg; Monitor.PulseAll(gate); }
         }
 
         public bool TryTakeCommand(out string command)
@@ -95,20 +104,23 @@ namespace DualScreenBridge
                 Thread reader = new Thread(delegate () { ReadLoop(stream); });
                 reader.IsBackground = true;
                 reader.Start();
-                lock (gate) { if (title == null) title = lastTitle; if (idle == null) idle = lastIdle; }
+                lock (gate) { if (title == null) title = lastTitle; if (idle == null) idle = lastIdle; backdrop = lastBackdrop; }
                 while (running && !readerDone)
                 {
                     byte[] jpg;
                     string text;
                     string place;
+                    byte[] back;
                     lock (gate)
                     {
-                        if (frame == null && title == null && idle == null) Monitor.Wait(gate, 250);
+                        if (frame == null && title == null && idle == null && backdrop == null) Monitor.Wait(gate, 250);
                         jpg = frame; frame = null;
                         text = title; title = null;
                         place = idle; idle = null;
+                        back = backdrop; backdrop = null;
                     }
                     if (text != null) Send(stream, TypeTitle, Encoding.UTF8.GetBytes(text));
+                    if (back != null) Send(stream, TypeBackdrop, back);
                     if (place != null) Send(stream, TypeIdle, Encoding.UTF8.GetBytes(place));
                     if (jpg != null) Send(stream, TypeImage, jpg);
                 }

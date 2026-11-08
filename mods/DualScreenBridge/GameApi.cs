@@ -153,6 +153,12 @@ namespace DualScreenBridge
             return Convert.ToInt32(Invoke(null, Find("dq_mapjump"), "GetMainMapNo"));
         }
 
+        // The title scene stays loaded from the title screen on; before it the game is still booting.
+        public static bool TitleUp()
+        {
+            return UnityEngine.SceneManagement.SceneManager.GetSceneByName("TitleNGUI").isLoaded;
+        }
+
         // The place name the game lists for the current map; empty when it has none.
         public static string LocationName()
         {
@@ -166,6 +172,7 @@ namespace DualScreenBridge
                     if (c >= ' ') clean.Append(c);
                 }
                 string text = clean.ToString().Trim();
+                if (text.Length > 2 && text[0] == '(' && text[text.Length - 1] == ')') text = text.Substring(1, text.Length - 2);
                 return text.Length > 60 ? text.Substring(0, 60) : text;
             }
             catch (Exception)

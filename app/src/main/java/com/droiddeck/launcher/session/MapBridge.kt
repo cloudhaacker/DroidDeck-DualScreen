@@ -18,6 +18,8 @@ object MapFeed {
     @Volatile var title: String = ""
     @Volatile var idle: Boolean = false
     @Volatile var place: String = ""
+    @Volatile var boot: Boolean = false
+    @Volatile var backdrop: Bitmap? = null
     @Volatile var connected: Boolean = false
     @Volatile var onChange: (() -> Unit)? = null
     @Volatile var onConnect: (() -> Unit)? = null
@@ -32,6 +34,8 @@ object MapFeed {
         title = ""
         idle = false
         place = ""
+        boot = false
+        backdrop = null
         connected = false
         onChange?.invoke()
     }
@@ -39,7 +43,7 @@ object MapFeed {
 
 /**
  * Loopback server a game mod connects to. Every message is a big-endian u32 length (type byte plus payload),
- * a type byte, then the payload: 1 = PNG or JPEG frame, 2 = UTF-8 title, 4 = nothing to show (payload is the place name, may be empty). Messages to the game use type 3 (UTF-8 command).
+ * a type byte, then the payload: 1 = PNG or JPEG frame, 2 = UTF-8 title, 4 = nothing to show (payload "boot", or "place:" plus the place name, which may be empty), 5 = JPEG backdrop for that screen. Messages to the game use type 3 (UTF-8 command).
  */
 class MapBridge : SessionPart() {
     @Volatile private var server: ServerSocket? = null
@@ -100,8 +104,14 @@ class MapBridge : SessionPart() {
                         MapFeed.onChange?.invoke()
                     }
                     TYPE_IDLE -> {
-                        MapFeed.place = String(payload, Charsets.UTF_8)
+                        val text = String(payload, Charsets.UTF_8)
+                        MapFeed.boot = text == "boot"
+                        MapFeed.place = text.removePrefix("place:").takeUnless { MapFeed.boot } ?: ""
                         MapFeed.idle = true
+                        MapFeed.onChange?.invoke()
+                    }
+                    TYPE_BACKDROP -> BitmapFactory.decodeByteArray(payload, 0, payload.size)?.let {
+                        MapFeed.backdrop = it
                         MapFeed.onChange?.invoke()
                     }
                 }
@@ -141,5 +151,6 @@ class MapBridge : SessionPart() {
         private const val TYPE_TITLE = 2
         private const val TYPE_COMMAND = 3
         private const val TYPE_IDLE = 4
+        private const val TYPE_BACKDROP = 5
     }
 }

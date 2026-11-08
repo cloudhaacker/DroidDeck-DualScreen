@@ -19,6 +19,7 @@ internal class SessionMapView(context: Context) : View(context) {
         color = Color.WHITE
         textSize = dp(14).toFloat()
     }
+    private val dimPaint = Paint().apply { color = Color.BLACK }
     private val placePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
     private val creditPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.rgb(140, 148, 160)
@@ -107,21 +108,34 @@ internal class SessionMapView(context: Context) : View(context) {
 
     private fun drawIdle(canvas: Canvas) {
         canvas.drawColor(Color.rgb(20, 23, 28))
-        val place = MapFeed.place
         val centre = height / 2f
-        if (place.isNotEmpty()) {
-            placePaint.textSize = dp(30).toFloat()
-            val room = width * 0.88f
-            val measured = placePaint.measureText(place)
-            if (measured > room) placePaint.textSize = maxOf(dp(14).toFloat(), placePaint.textSize * room / measured)
-            canvas.drawText(place, (width - placePaint.measureText(place)) / 2f, centre, placePaint)
+        if (MapFeed.boot) {
+            placePaint.clearShadowLayer()
+            placePaint.textSize = dp(26).toFloat()
+            val credit = context.getString(R.string.second_idle_credit)
+            canvas.drawText(credit, (width - placePaint.measureText(credit)) / 2f, centre, placePaint)
+            val name = context.getString(R.string.second_idle_mod)
+            canvas.drawText(name, (width - creditPaint.measureText(name)) / 2f, centre + dp(30).toFloat(), creditPaint)
             return
         }
-        placePaint.textSize = dp(26).toFloat()
-        val credit = context.getString(R.string.second_idle_credit)
-        canvas.drawText(credit, (width - placePaint.measureText(credit)) / 2f, centre, placePaint)
-        val name = context.getString(R.string.second_idle_mod)
-        canvas.drawText(name, (width - creditPaint.measureText(name)) / 2f, centre + dp(30).toFloat(), creditPaint)
+        val place = MapFeed.place
+        val backdrop = MapFeed.backdrop
+        if (backdrop != null) {
+            val scale = maxOf(width.toFloat() / backdrop.width, height.toFloat() / backdrop.height)
+            val w = backdrop.width * scale
+            val h = backdrop.height * scale
+            dest.set((width - w) / 2f, (height - h) / 2f, (width + w) / 2f, (height + h) / 2f)
+            canvas.drawBitmap(backdrop, null, dest, bitmapPaint)
+            dimPaint.alpha = if (place.isEmpty()) 90 else 140
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), dimPaint)
+        }
+        if (place.isEmpty()) return
+        placePaint.setShadowLayer(dp(4).toFloat(), 0f, dp(2).toFloat(), Color.BLACK)
+        placePaint.textSize = dp(30).toFloat()
+        val room = width * 0.88f
+        val measured = placePaint.measureText(place)
+        if (measured > room) placePaint.textSize = maxOf(dp(14).toFloat(), placePaint.textSize * room / measured)
+        canvas.drawText(place, (width - placePaint.measureText(place)) / 2f, centre, placePaint)
     }
 
     private fun drawWaiting(canvas: Canvas) {

@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.34", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.35", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -391,7 +391,7 @@ namespace DualScreenBridge
         {
             BridgeMod.OwnDepth = 0;
             StallProbe.Beat();
-            TitleProbe.Tick();
+            Backdrop.Tick(BridgeMod.Client);
             float frame = Time.unscaledDeltaTime;
             string phases = FrameTrace.Frame(frame, playerSeen);
             // The trace also runs without the bridge, so the field is detected here and not only in Poll.
@@ -489,7 +489,7 @@ namespace DualScreenBridge
             if (place != lastIdleName)
             {
                 lastIdleName = place;
-                MelonLogger.Msg("idle picture: place '" + place + "'");
+                MelonLogger.Msg("idle picture: '" + place + "'");
             }
             client.SetIdle(place);
         }
@@ -555,7 +555,7 @@ namespace DualScreenBridge
                 freeSince = -1f;
                 lastMapNo = int.MinValue;
                 BridgeMod.Status = "waiting for the field";
-                if (shownMapNo == int.MinValue) Idle(client, "");
+                if (shownMapNo == int.MinValue) Idle(client, GameApi.TitleUp() ? "place:" : "boot");
                 return;
             }
             playerSeen = true;
@@ -584,7 +584,7 @@ namespace DualScreenBridge
             {
                 map.Destroy("no map for this area");
                 BridgeMod.Status = "no map for this area";
-                Idle(client, GameApi.LocationName());
+                Idle(client, "place:" + GameApi.LocationName());
                 return;
             }
             // The game's item-menu world map command sets the mode directly, so it works from inside a town too.
@@ -594,7 +594,7 @@ namespace DualScreenBridge
             if (freeSince < 0f || now - freeSince < SettleSeconds)
             {
                 BridgeMod.Status = "waiting for the game to settle";
-                if (mapNo != shownMapNo) Idle(client, GameApi.LocationName());
+                if (mapNo != shownMapNo) Idle(client, "place:" + GameApi.LocationName());
                 return;
             }
             string error = map.Create(mode, key);
