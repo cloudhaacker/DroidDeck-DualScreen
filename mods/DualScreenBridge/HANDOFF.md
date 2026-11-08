@@ -441,3 +441,13 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - Fix: `leftFreeSinceCreate` is set whenever the player is not free and cleared when a copy is created. A rebuild only counts toward the loop guard when no not-free period happened since the copy was built (a real runaway loop has none); a walk through a door resets the streak.
 - Known and left alone (own release): the new copy shows centered for a split second before the star; idea is to hold its first frames until the hero marker is placed.
 - Next queued: idle-screen fixes (credit flash after Continue, brick when returning to the main menu), shorter settle experiment.
+
+## v0.6.41 result
+- John: tested rapid in/out of the well and buildings without letting the map populate; no hang, map caught up afterwards. Log: 9 rebuilds, no loop-guard block, no errors.
+
+## v0.6.42 (idle screen: credit only at first boot, brick on return to the menu; DLL only, built, untested)
+- v0.6.41 log: `idle picture: 'boot'` appeared again at 18:37:16, after the title was up (18:36:55 `place:`), because Continue unloads TitleNGUI and `TitleUp()` went false: that was the credit flash after Continue.
+- Fix 1: `titleSeen` latches once `TitleUp()` has been true; after that the no-player idle is always `place:` (brick), never `boot`.
+- Fix 2: in the no-player branch, if a copy was active or a map number was known, `shownMapNo` is reset so the idle picture is sent again; returning to the main menu now shows the brick instead of the last map picture.
+- Bundled two small changes in the same branch; if either misbehaves, they are separate lines in Poll.
+- Next queued: hold the first frames of a new copy until the hero marker is placed (centered flash), shorter settle experiment.

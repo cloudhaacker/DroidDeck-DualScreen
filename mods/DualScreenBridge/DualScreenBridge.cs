@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.41", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.42", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -366,6 +366,7 @@ namespace DualScreenBridge
         private static float lastCreateAt;
         private static int pinkStreak;
         private static bool leftFreeSinceCreate;
+        private static bool titleSeen;
         private const int PinkRebuildMs = 1000;
         private static int unchangedSkipped;
         private static long lastSentHash;
@@ -559,11 +560,15 @@ namespace DualScreenBridge
             }
             if (!GameApi.HasPlayer())
             {
+                // Back at the main menu from a game: the last map or place is over, so show the brick again.
+                if (map.Active || lastMapNo != int.MinValue) shownMapNo = int.MinValue;
                 map.Destroy("no player");
                 freeSince = -1f;
                 lastMapNo = int.MinValue;
                 BridgeMod.Status = "waiting for the field";
-                if (shownMapNo == int.MinValue) Idle(client, GameApi.TitleUp() ? "place:" : "boot");
+                // The MelonLoader credit is for the very first boot only; once the title has been up it never comes back (Continue unloads it).
+                if (GameApi.TitleUp()) titleSeen = true;
+                if (shownMapNo == int.MinValue) Idle(client, titleSeen ? "place:" : "boot");
                 return;
             }
             playerSeen = true;
