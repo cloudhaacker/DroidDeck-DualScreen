@@ -451,3 +451,9 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - Fix 2: in the no-player branch, if a copy was active or a map number was known, `shownMapNo` is reset so the idle picture is sent again; returning to the main menu now shows the brick instead of the last map picture.
 - Bundled two small changes in the same branch; if either misbehaves, they are separate lines in Poll.
 - Next queued: hold the first frames of a new copy until the hero marker is placed (centered flash), shorter settle experiment.
+
+## v0.6.42 result and app fix (APK only; DLL stays 0.6.42)
+- John: no credit flash after Continue; brick shows after returning to the main menu. Quitting from the main menu flashed the last map for a second before closing.
+- Log: the mod sent `idle picture: 'place:'` correctly at 18:47:31 and nothing after, so the flash is app side: on disconnect `MapFeed.connected` goes false while `idle` stays true, and `SessionMapView.onDraw` only draws the idle picture when `idle && connected`, so it fell through to the stale `bitmap`.
+- Fix in `MapBridge.kt` (disconnect `finally`): clear `bitmap` and `idle` so the waiting screen shows. Needs a new APK (`gh workflow run "Build APK" --ref dual-screen-map`).
+- Next queued: centered flash on new copy (hold first frames until the star is placed), shorter settle experiment.

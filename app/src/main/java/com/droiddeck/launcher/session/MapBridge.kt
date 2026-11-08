@@ -124,6 +124,9 @@ class MapBridge : SessionPart() {
                 client = null
                 MapFeed.sender = null
                 MapFeed.connected = false
+                // The game closed: drop the last map picture, or the screen shows it for a moment because the idle picture only draws while connected.
+                MapFeed.bitmap = null
+                MapFeed.idle = false
                 MapFeed.onChange?.invoke()
             }
         }
