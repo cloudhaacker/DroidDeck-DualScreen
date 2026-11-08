@@ -14,12 +14,15 @@ namespace DualScreenBridge
         private const int TypeImage = 1;
         private const int TypeTitle = 2;
         private const int TypeCommand = 3;
+        private const int TypeIdle = 4;
 
         private readonly object gate = new object();
         private readonly Queue<string> commands = new Queue<string>();
         private byte[] frame;
         private string title;
         private string lastTitle;
+        private string idle;
+        private string lastIdle;
         private volatile bool running;
         private volatile bool connected;
         private volatile bool readerDone;
@@ -49,6 +52,12 @@ namespace DualScreenBridge
         public void SetTitle(string text)
         {
             lock (gate) { title = text; lastTitle = text; Monitor.PulseAll(gate); }
+        }
+
+        // The second screen shows its own text picture instead of a map; the text is the place name, empty when unknown.
+        public void SetIdle(string place)
+        {
+            lock (gate) { idle = place; lastIdle = place; Monitor.PulseAll(gate); }
         }
 
         public bool TryTakeCommand(out string command)
@@ -86,18 +95,21 @@ namespace DualScreenBridge
                 Thread reader = new Thread(delegate () { ReadLoop(stream); });
                 reader.IsBackground = true;
                 reader.Start();
-                lock (gate) { if (title == null) title = lastTitle; }
+                lock (gate) { if (title == null) title = lastTitle; if (idle == null) idle = lastIdle; }
                 while (running && !readerDone)
                 {
                     byte[] jpg;
                     string text;
+                    string place;
                     lock (gate)
                     {
-                        if (frame == null && title == null) Monitor.Wait(gate, 250);
+                        if (frame == null && title == null && idle == null) Monitor.Wait(gate, 250);
                         jpg = frame; frame = null;
                         text = title; title = null;
+                        place = idle; idle = null;
                     }
                     if (text != null) Send(stream, TypeTitle, Encoding.UTF8.GetBytes(text));
+                    if (place != null) Send(stream, TypeIdle, Encoding.UTF8.GetBytes(place));
                     if (jpg != null) Send(stream, TypeImage, jpg);
                 }
             }

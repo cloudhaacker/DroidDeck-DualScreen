@@ -1993,6 +1993,8 @@
     <string name="second_mode_game_map">Dual screen</string>
     <string name="second_map_area">Area</string>
     <string name="second_map_world">World</string>
+    <string name="second_idle_mod">DualScreenBridge</string>
+    <string name="second_idle_credit">Made with MelonLoader</string>
     <string name="second_map_waiting">Waiting for a game on 127.0.0.1:47200</string>
     <string name="second_mode_dashboard">Dashboard</string>
     <string name="second_mode_desktop">Desktop</string>

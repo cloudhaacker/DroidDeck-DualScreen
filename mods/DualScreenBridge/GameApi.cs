@@ -153,6 +153,27 @@ namespace DualScreenBridge
             return Convert.ToInt32(Invoke(null, Find("dq_mapjump"), "GetMainMapNo"));
         }
 
+        // The place name the game lists for the current map; empty when it has none.
+        public static string LocationName()
+        {
+            try
+            {
+                string title = Invoke(null, Find("dq_mapinfo"), "GetMapTitle", MapNo()) as string;
+                if (title == null) return "";
+                System.Text.StringBuilder clean = new System.Text.StringBuilder();
+                foreach (char c in title)
+                {
+                    if (c >= ' ') clean.Append(c);
+                }
+                string text = clean.ToString().Trim();
+                return text.Length > 60 ? text.Substring(0, 60) : text;
+            }
+            catch (Exception)
+            {
+                return "";
+            }
+        }
+
         // Whether the game lets the player see the world map from where they stand.
         public static bool WorldMapAvailable()
         {

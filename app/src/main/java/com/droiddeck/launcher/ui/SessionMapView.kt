@@ -19,6 +19,11 @@ internal class SessionMapView(context: Context) : View(context) {
         color = Color.WHITE
         textSize = dp(14).toFloat()
     }
+    private val placePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+    private val creditPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(140, 148, 160)
+        textSize = dp(13).toFloat()
+    }
     private val gridPaint = Paint().apply {
         color = Color.rgb(40, 48, 58)
         strokeWidth = 1f
@@ -75,7 +80,7 @@ internal class SessionMapView(context: Context) : View(context) {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (MapFeed.bitmap == null) return false
+        if (MapFeed.bitmap == null || MapFeed.idle) return false
         scaler.onTouchEvent(event)
         if (!scaler.isInProgress) gestures.onTouchEvent(event)
         if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) flush(true)
@@ -84,6 +89,10 @@ internal class SessionMapView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         canvas.drawColor(Color.BLACK)
+        if (MapFeed.idle && MapFeed.connected) {
+            drawIdle(canvas)
+            return
+        }
         val bitmap = MapFeed.bitmap
         if (bitmap == null) {
             drawWaiting(canvas)
@@ -94,6 +103,25 @@ internal class SessionMapView(context: Context) : View(context) {
         val h = bitmap.height * scale
         dest.set((width - w) / 2f, (height - h) / 2f, (width + w) / 2f, (height + h) / 2f)
         canvas.drawBitmap(bitmap, null, dest, bitmapPaint)
+    }
+
+    private fun drawIdle(canvas: Canvas) {
+        canvas.drawColor(Color.rgb(20, 23, 28))
+        val place = MapFeed.place
+        val centre = height / 2f
+        if (place.isNotEmpty()) {
+            placePaint.textSize = dp(30).toFloat()
+            val room = width * 0.88f
+            val measured = placePaint.measureText(place)
+            if (measured > room) placePaint.textSize = maxOf(dp(14).toFloat(), placePaint.textSize * room / measured)
+            canvas.drawText(place, (width - placePaint.measureText(place)) / 2f, centre, placePaint)
+        } else {
+            placePaint.textSize = dp(26).toFloat()
+            val name = context.getString(R.string.second_idle_mod)
+            canvas.drawText(name, (width - placePaint.measureText(name)) / 2f, centre, placePaint)
+        }
+        val credit = context.getString(R.string.second_idle_credit)
+        canvas.drawText(credit, (width - creditPaint.measureText(credit)) / 2f, height - dp(28).toFloat(), creditPaint)
     }
 
     private fun drawWaiting(canvas: Canvas) {

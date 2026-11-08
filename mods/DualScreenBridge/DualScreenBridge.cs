@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.32", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.33", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -369,6 +369,8 @@ namespace DualScreenBridge
         private const float SettleSeconds = 2.5f;
         private static float freeSince = -1f;
         private static int lastMapNo = int.MinValue;
+        private static int shownMapNo = int.MinValue;
+        private static string lastIdleName;
         private static bool lastFree;
         private static bool lastBattle;
         private static bool playerSeen;
@@ -450,7 +452,6 @@ namespace DualScreenBridge
             }
 
             bool connected = client.Connected;
-            if (connected && !wasConnected && !BridgeMod.Map.Active) client.SetFrame(Placeholder());
             if (connected && !wasConnected) lastSentHash = 0;
             wasConnected = connected;
 
@@ -479,6 +480,17 @@ namespace DualScreenBridge
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
             BridgeMod.Map.Tick();
             TickStat.Add(started);
+        }
+
+        // Sent every poll while idle, so a picture that was still in flight cannot leave the old map on the second screen.
+        private static void Idle(BridgeClient client, string place)
+        {
+            if (place != lastIdleName)
+            {
+                lastIdleName = place;
+                MelonLogger.Msg("idle picture: place '" + place + "'");
+            }
+            client.SetIdle(place);
         }
 
         private static void Poll(BridgeClient client)
@@ -542,6 +554,7 @@ namespace DualScreenBridge
                 freeSince = -1f;
                 lastMapNo = int.MinValue;
                 BridgeMod.Status = "waiting for the field";
+                if (shownMapNo == int.MinValue) Idle(client, "");
                 return;
             }
             playerSeen = true;
@@ -563,12 +576,14 @@ namespace DualScreenBridge
                 lastMapNo = mapNo;
                 freeSince = free ? now : -1f;
                 map.Destroy("map changed");
+                MelonLogger.Msg("place name for map " + mapNo + ": '" + GameApi.LocationName() + "'");
             }
             int mode = GameApi.AutoMode();
             if (mode == 0)
             {
                 map.Destroy("no map for this area");
                 BridgeMod.Status = "no map for this area";
+                Idle(client, GameApi.LocationName());
                 return;
             }
             // The game's item-menu world map command sets the mode directly, so it works from inside a town too.
@@ -578,6 +593,7 @@ namespace DualScreenBridge
             if (freeSince < 0f || now - freeSince < SettleSeconds)
             {
                 BridgeMod.Status = "waiting for the game to settle";
+                if (mapNo != shownMapNo) Idle(client, GameApi.LocationName());
                 return;
             }
             string error = map.Create(mode, key);
@@ -587,6 +603,7 @@ namespace DualScreenBridge
                 MelonLogger.Msg(BridgeMod.Status);
                 return;
             }
+            shownMapNo = mapNo;
             BridgeMod.Status = mode == 2 ? "town or dungeon map" : (BridgeMod.DesiredView == 1 ? "area map" : (BridgeMod.DesiredView == 0 ? "world map" : "field map"));
             MelonLogger.Msg("showing: " + BridgeMod.Status + "; " + GameApi.MiniMapState());
         }
@@ -724,18 +741,6 @@ namespace DualScreenBridge
             }
             pink = n > 0 && magenta * 100 / n >= 20;
             return n > 0 ? (r / n) + "," + (g / n) + "," + (b / n) + " magenta " + (magenta * 100 / n) + "%" : "-";
-        }
-
-        private static byte[] Placeholder()
-        {
-            Texture2D tex = new Texture2D(64, 36, TextureFormat.RGB24, false);
-            Color[] fill = new Color[64 * 36];
-            for (int i = 0; i < fill.Length; i++) fill[i] = new Color(0.08f, 0.09f, 0.11f);
-            tex.SetPixels(fill);
-            tex.Apply();
-            byte[] jpg = ImageConversion.EncodeToJPG(tex, 90);
-            Destroy(tex);
-            return jpg;
         }
     }
 }

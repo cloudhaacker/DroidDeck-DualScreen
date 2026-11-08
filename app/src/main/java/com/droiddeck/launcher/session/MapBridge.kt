@@ -16,6 +16,8 @@ import java.util.concurrent.Executors
 object MapFeed {
     @Volatile var bitmap: Bitmap? = null
     @Volatile var title: String = ""
+    @Volatile var idle: Boolean = false
+    @Volatile var place: String = ""
     @Volatile var connected: Boolean = false
     @Volatile var onChange: (() -> Unit)? = null
     @Volatile var onConnect: (() -> Unit)? = null
@@ -28,6 +30,8 @@ object MapFeed {
     fun reset() {
         bitmap = null
         title = ""
+        idle = false
+        place = ""
         connected = false
         onChange?.invoke()
     }
@@ -35,7 +39,7 @@ object MapFeed {
 
 /**
  * Loopback server a game mod connects to. Every message is a big-endian u32 length (type byte plus payload),
- * a type byte, then the payload: 1 = PNG or JPEG frame, 2 = UTF-8 title. Messages to the game use type 3 (UTF-8 command).
+ * a type byte, then the payload: 1 = PNG or JPEG frame, 2 = UTF-8 title, 4 = nothing to show (payload is the place name, may be empty). Messages to the game use type 3 (UTF-8 command).
  */
 class MapBridge : SessionPart() {
     @Volatile private var server: ServerSocket? = null
@@ -88,10 +92,16 @@ class MapBridge : SessionPart() {
                 when (type) {
                     TYPE_IMAGE -> BitmapFactory.decodeByteArray(payload, 0, payload.size)?.let {
                         MapFeed.bitmap = it
+                        MapFeed.idle = false
                         MapFeed.onChange?.invoke()
                     }
                     TYPE_TITLE -> {
                         MapFeed.title = String(payload, Charsets.UTF_8)
+                        MapFeed.onChange?.invoke()
+                    }
+                    TYPE_IDLE -> {
+                        MapFeed.place = String(payload, Charsets.UTF_8)
+                        MapFeed.idle = true
                         MapFeed.onChange?.invoke()
                     }
                 }
@@ -130,5 +140,6 @@ class MapBridge : SessionPart() {
         private const val TYPE_IMAGE = 1
         private const val TYPE_TITLE = 2
         private const val TYPE_COMMAND = 3
+        private const val TYPE_IDLE = 4
     }
 }
