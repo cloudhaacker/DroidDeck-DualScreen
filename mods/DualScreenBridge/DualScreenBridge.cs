@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.35", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.36", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -360,6 +360,10 @@ namespace DualScreenBridge
         private const float StillInterval = 1.5f;
         private const int StillReads = 3;
         private static int pinkSkipped;
+        // Environment.TickCount of the first pink picture in the current run of them, 0 when the latest picture was fine.
+        private static volatile int pinkSinceTick;
+        private static float pinkRebuildAfter;
+        private const int PinkRebuildMs = 3000;
         private static int unchangedSkipped;
         private static long lastSentHash;
         private static volatile int unchangedRuns;
@@ -579,6 +583,17 @@ namespace DualScreenBridge
                 map.Destroy("map changed");
                 MelonLogger.Msg("place name for map " + mapNo + ": '" + GameApi.LocationName() + "'");
             }
+            // Some buildings make the game unload what the copy draws with; it stays pink until it is built again.
+            int pinkSince = pinkSinceTick;
+            if (map.Active && pinkSince != 0 && now >= pinkRebuildAfter && unchecked(Environment.TickCount - pinkSince) > PinkRebuildMs)
+            {
+                MelonLogger.Msg("the map copy has drawn pink for " + (unchecked(Environment.TickCount - pinkSince) / 1000) + " s; building it again");
+                map.Destroy("pink picture");
+                pinkSinceTick = 0;
+                pinkRebuildAfter = now + 20f;
+                freeSince = free ? now : -1f;
+                shownMapNo = int.MinValue;
+            }
             int mode = GameApi.AutoMode();
             if (mode == 0)
             {
@@ -605,6 +620,7 @@ namespace DualScreenBridge
                 return;
             }
             shownMapNo = mapNo;
+            pinkSinceTick = 0;
             BridgeMod.Status = mode == 2 ? "town or dungeon map" : (BridgeMod.DesiredView == 1 ? "area map" : (BridgeMod.DesiredView == 0 ? "world map" : "field map"));
             MelonLogger.Msg("showing: " + BridgeMod.Status + "; " + GameApi.MiniMapState());
         }
@@ -665,8 +681,10 @@ namespace DualScreenBridge
                     bool pink;
                     string mean = Sample(raw, w, h, out pink);
                     lastMean = mean;
+                    if (!pink) pinkSinceTick = 0;
                     if (pink)
                     {
+                        if (pinkSinceTick == 0) pinkSinceTick = Environment.TickCount | 1;
                         pinkSkipped++;
                         if (pinkLogged < 12)
                         {
