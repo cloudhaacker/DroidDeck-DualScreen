@@ -435,3 +435,9 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - Fix: `CaptureLoop` calls `GameApi.PlayerFree` before each capture (about 8 per second, a few reflection reads) and skips the capture while it is false; the previous picture stays on the second screen. Side effect: the map does not follow the hero during scripted walks and message windows (nothing to follow in most of them); it resumes at once when the player is free.
 - Kept: v0.6.39 marker-swap rebuild and v0.6.38 view-hold.
 - If the middle still shows: the picture is wrong while the player is still free (before `mode=2`), or the jump is not in the picture; then log the first hero positions around the door (the `hero at picture` log shows only the first 8).
+
+## v0.6.41 (loop guard no longer blocks real trips; DLL only, built, untested)
+- v0.6.40 log: after exiting the well at 18:18:51 the log said `rebuilt copies are out of date again right away; not rebuilding for 30 s`, so the map stayed stale until 18:19:21 (matches the report). John was making quick back-to-back trips (building, well, building), each rebuilt copy was replaced within 8 s, and three of those tripped the guard.
+- Fix: `leftFreeSinceCreate` is set whenever the player is not free and cleared when a copy is created. A rebuild only counts toward the loop guard when no not-free period happened since the copy was built (a real runaway loop has none); a walk through a door resets the streak.
+- Known and left alone (own release): the new copy shows centered for a split second before the star; idea is to hold its first frames until the hero marker is placed.
+- Next queued: idle-screen fixes (credit flash after Continue, brick when returning to the main menu), shorter settle experiment.

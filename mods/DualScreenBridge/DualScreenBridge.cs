@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.40", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.41", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -365,6 +365,7 @@ namespace DualScreenBridge
         private static float pinkRebuildAfter;
         private static float lastCreateAt;
         private static int pinkStreak;
+        private static bool leftFreeSinceCreate;
         private const int PinkRebuildMs = 1000;
         private static int unchangedSkipped;
         private static long lastSentHash;
@@ -576,7 +577,7 @@ namespace DualScreenBridge
                 lastFree = free;
                 MelonLogger.Msg("player free: " + free + " (" + detail + "); last map picture rgb " + lastMean);
             }
-            if (!free) freeSince = -1f;
+            if (!free) { freeSince = -1f; leftFreeSinceCreate = true; }
             else if (freeSince < 0f) freeSince = now;
             int mapNo = GameApi.MapNo();
             if (mapNo != lastMapNo)
@@ -593,7 +594,8 @@ namespace DualScreenBridge
             if (map.Active && free && (pinkLong || map.MarkerSwapped) && now >= pinkRebuildAfter)
             {
                 string why = map.MarkerSwapped ? "its hero marker changed" : "it drew pink for " + (unchecked(Environment.TickCount - pinkSince) / 1000f).ToString("0.0") + " s";
-                pinkStreak = now - lastCreateAt < 8f ? pinkStreak + 1 : 0;
+                // A walk through a door (player not free) since the copy was built is a real trip, not a runaway loop.
+                pinkStreak = (now - lastCreateAt < 8f && !leftFreeSinceCreate) ? pinkStreak + 1 : 0;
                 pinkSinceTick = 0;
                 if (pinkStreak >= 3)
                 {
@@ -636,6 +638,7 @@ namespace DualScreenBridge
             shownMapNo = mapNo;
             pinkSinceTick = 0;
             lastCreateAt = now;
+            leftFreeSinceCreate = false;
             BridgeMod.Status = mode == 2 ? "town or dungeon map" : (BridgeMod.DesiredView == 1 ? "area map" : (BridgeMod.DesiredView == 0 ? "world map" : "field map"));
             MelonLogger.Msg("showing: " + BridgeMod.Status + "; " + GameApi.MiniMapState());
         }
