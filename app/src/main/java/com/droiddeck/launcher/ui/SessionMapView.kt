@@ -115,13 +115,13 @@ internal class SessionMapView(context: Context) : View(context) {
             val measured = placePaint.measureText(place)
             if (measured > room) placePaint.textSize = maxOf(dp(14).toFloat(), placePaint.textSize * room / measured)
             canvas.drawText(place, (width - placePaint.measureText(place)) / 2f, centre, placePaint)
-        } else {
-            placePaint.textSize = dp(26).toFloat()
-            val name = context.getString(R.string.second_idle_mod)
-            canvas.drawText(name, (width - placePaint.measureText(name)) / 2f, centre, placePaint)
+            return
         }
+        placePaint.textSize = dp(26).toFloat()
         val credit = context.getString(R.string.second_idle_credit)
-        canvas.drawText(credit, (width - creditPaint.measureText(credit)) / 2f, height - dp(28).toFloat(), creditPaint)
+        canvas.drawText(credit, (width - placePaint.measureText(credit)) / 2f, centre, placePaint)
+        val name = context.getString(R.string.second_idle_mod)
+        canvas.drawText(name, (width - creditPaint.measureText(name)) / 2f, centre + dp(30).toFloat(), creditPaint)
     }
 
     private fun drawWaiting(canvas: Canvas) {

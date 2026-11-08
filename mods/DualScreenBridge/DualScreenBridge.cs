@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.33", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.34", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -391,6 +391,7 @@ namespace DualScreenBridge
         {
             BridgeMod.OwnDepth = 0;
             StallProbe.Beat();
+            TitleProbe.Tick();
             float frame = Time.unscaledDeltaTime;
             string phases = FrameTrace.Frame(frame, playerSeen);
             // The trace also runs without the bridge, so the field is detected here and not only in Poll.
