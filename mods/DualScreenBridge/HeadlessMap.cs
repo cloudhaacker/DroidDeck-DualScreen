@@ -37,6 +37,9 @@ namespace DualScreenBridge
         private bool follow = true;
         private float viewX, viewY;
         private bool heroSeen;
+        private string createdMarker;
+        // The game swaps the hero's marker (arrow outside, star inside) as soon as a building is entered or left; the copy built before that is out of date.
+        public bool MarkerSwapped { get; private set; }
         private float baseOrtho;
         private Vector3 basePos;
         private Camera ownCamera;
@@ -218,6 +221,8 @@ namespace DualScreenBridge
             createdAt = Time.realtimeSinceStartup;
             lastSignature = null;
             heroSeen = false;
+            createdMarker = null;
+            MarkerSwapped = false;
             readyAt = 0f;
             cameraChanges = 0;
             fixLogged = 0;
@@ -382,6 +387,12 @@ namespace DualScreenBridge
                 if (world) interior = Convert.ToInt32(GameApi.GetField(null, worldType, "interior")) != 0;
                 else interior = Convert.ToInt32(GameApi.GetField(GameApi.Invoke(null, GameApi.Find("guidmap"), "get_GetTownMapInfo"), null, "Interior")) != 0;
                 string wanted = interior ? "map_star" : "map_cursor";
+                if (createdMarker == null) createdMarker = wanted;
+                else if (wanted != createdMarker && !MarkerSwapped)
+                {
+                    MarkerSwapped = true;
+                    MelonLogger.Msg("hero marker changed from " + createdMarker + " to " + wanted + "; holding the picture until the map copy is built again");
+                }
                 if (wanted != markerName) { markerName = wanted; cursor = null; cursorScanAt = 0f; }
                 // The game positions the marker as if the map sat at the origin; the copy is far away.
                 Transform holder = cursor != null ? cursor.parent : null;

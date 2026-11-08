@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.38", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.39", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -586,23 +586,25 @@ namespace DualScreenBridge
                 map.Destroy("map changed");
                 MelonLogger.Msg("place name for map " + mapNo + ": '" + GameApi.LocationName() + "'");
             }
-            // Some buildings make the game unload what the copy draws with; it stays pink until it is built again. A fight also
-            // draws pink for a moment, so this waits for the player to be free, and a copy that is pink again soon after being built is left alone.
+            // Entering or leaving a building swaps the hero's marker and leaves the copy pink; a fight also draws pink for a moment, so
+            // this waits for the player to be free, and a copy that is out of date again soon after being built is left alone.
             int pinkSince = pinkSinceTick;
-            if (map.Active && free && pinkSince != 0 && now >= pinkRebuildAfter && unchecked(Environment.TickCount - pinkSince) > PinkRebuildMs)
+            bool pinkLong = pinkSince != 0 && unchecked(Environment.TickCount - pinkSince) > PinkRebuildMs;
+            if (map.Active && free && (pinkLong || map.MarkerSwapped) && now >= pinkRebuildAfter)
             {
+                string why = map.MarkerSwapped ? "its hero marker changed" : "it drew pink for " + (unchecked(Environment.TickCount - pinkSince) / 1000f).ToString("0.0") + " s";
                 pinkStreak = now - lastCreateAt < 8f ? pinkStreak + 1 : 0;
                 pinkSinceTick = 0;
                 if (pinkStreak >= 3)
                 {
                     pinkStreak = 0;
                     pinkRebuildAfter = now + 30f;
-                    MelonLogger.Msg("rebuilt copies keep drawing pink; not rebuilding for 30 s");
+                    MelonLogger.Msg("rebuilt copies are out of date again right away; not rebuilding for 30 s");
                 }
                 else
                 {
-                    MelonLogger.Msg("the map copy has drawn pink for " + (unchecked(Environment.TickCount - pinkSince) / 1000f).ToString("0.0") + " s; building it again");
-                    map.Destroy("pink picture");
+                    MelonLogger.Msg("the map copy is out of date (" + why + "); building it again");
+                    map.Destroy("out of date");
                     shownMapNo = int.MinValue;
                 }
             }
@@ -654,7 +656,7 @@ namespace DualScreenBridge
                 nextFrame = Time.realtimeSinceStartup + (unchangedRuns >= StillReads ? StillInterval : MovingInterval);
                 BridgeClient client = BridgeMod.Client;
                 // A new copy draws black until its windows exist, so the previous picture stays on the second screen meanwhile.
-                if (client == null || !client.Connected || !BridgeMod.Map.Active || !BridgeMod.Map.Ready) continue;
+                if (client == null || !client.Connected || !BridgeMod.Map.Active || !BridgeMod.Map.Ready || BridgeMod.Map.MarkerSwapped) continue;
                 try
                 {
                     long started = System.Diagnostics.Stopwatch.GetTimestamp();
