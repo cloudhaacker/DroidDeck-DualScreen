@@ -2,6 +2,7 @@ package com.droiddeck.launcher.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.Public
 import com.droiddeck.launcher.R
 import android.app.Presentation
@@ -345,6 +346,12 @@ class SecondScreenPresentation(
             listOf(
                 BarExtra(context.getString(R.string.second_map_area), vector = Icons.Outlined.Map, tag = "bottom-map-area") { MapFeed.sendCommand("view:area") },
                 BarExtra(context.getString(R.string.second_map_world), vector = Icons.Outlined.Public, tag = "bottom-map-world") { MapFeed.sendCommand("view:world") },
+                BarExtra(context.getString(R.string.second_map_icons), vector = Icons.Outlined.Place, active = !MapFeed.iconsHidden, tag = "bottom-map-icons") {
+                    val hidden = !MapFeed.iconsHidden
+                    MapFeed.iconsHidden = hidden
+                    com.droiddeck.launcher.session.SessionPrefs.setMapIconsHidden(context, hidden)
+                    MapFeed.sendCommand(if (hidden) "icons:0" else "icons:1")
+                },
             )
         }
         val view = SessionMapView(context)

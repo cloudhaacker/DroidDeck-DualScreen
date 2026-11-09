@@ -640,7 +640,13 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             SessionState.gameOnBottom = false
             gameOnBottom = false
         }
-        com.droiddeck.launcher.session.MapFeed.onConnect = { uiHandler.post { gameMapConnected() } }
+        com.droiddeck.launcher.session.MapFeed.iconsHidden = SessionPrefs.mapIconsHidden(this)
+        com.droiddeck.launcher.session.MapFeed.onConnect = {
+            uiHandler.post {
+                com.droiddeck.launcher.session.MapFeed.sendCommand(if (com.droiddeck.launcher.session.MapFeed.iconsHidden) "icons:0" else "icons:1")
+                gameMapConnected()
+            }
+        }
         if (!SessionState.running && SessionState.phase in setOf(SessionPhase.IDLE, SessionPhase.FAILED)) {
             SessionState.program = intent.getStringExtra(SessionService.EXTRA_PROGRAM)
             SessionState.programArgs = intent.getStringArrayExtra(SessionService.EXTRA_PROGRAM_ARGS)?.toList().orEmpty()

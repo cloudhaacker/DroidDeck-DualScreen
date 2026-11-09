@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.43", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.44", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
@@ -428,7 +428,7 @@ namespace DualScreenBridge
             while (client.TryTakeCommand(out command))
             {
                 unchangedRuns = 0;
-                if (command.StartsWith("zoom:") || command.StartsWith("pan:") || command == "view:reset")
+                if (command.StartsWith("zoom:") || command.StartsWith("pan:") || command == "view:reset" || command.StartsWith("icons:"))
                 {
                     BridgeMod.Map.Gesture(command);
                     nextFrame = 0f;

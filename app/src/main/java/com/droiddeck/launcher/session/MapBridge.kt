@@ -21,6 +21,8 @@ object MapFeed {
     @Volatile var boot: Boolean = false
     @Volatile var backdrop: Bitmap? = null
     @Volatile var connected: Boolean = false
+    /** The bottom-screen map hides the shop, church, inn and well icons while this is true (kept in SessionPrefs, sent to the mod on connect). */
+    var iconsHidden by androidx.compose.runtime.mutableStateOf(false)
     @Volatile var onChange: (() -> Unit)? = null
     @Volatile var onConnect: (() -> Unit)? = null
     @Volatile var sender: ((String) -> Unit)? = null

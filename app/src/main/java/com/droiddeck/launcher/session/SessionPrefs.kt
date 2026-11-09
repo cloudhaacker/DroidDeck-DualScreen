@@ -116,6 +116,12 @@ object SessionPrefs {
         prefs(context).edit().putString("secondScreenPanel", mode).apply()
     }
 
+    fun mapIconsHidden(context: Context): Boolean = prefs(context).getBoolean("mapIconsHidden", false)
+
+    fun setMapIconsHidden(context: Context, hidden: Boolean) {
+        prefs(context).edit().putBoolean("mapIconsHidden", hidden).apply()
+    }
+
     /** The bottom-screen panel one game opens with (a [SecondScreenMode] id), or null to use the general behaviour. */
     fun gameBottomStart(context: Context, appId: Long): String? = prefs(context).getString("bottomStart:$appId", null)
 

@@ -247,6 +247,11 @@ namespace DualScreenBridge
             }
             if (cameraObject != null) ApplyView();
             if (instance != null) Relayer();
+            if (Time.realtimeSinceStartup >= iconsAt)
+            {
+                iconsAt = Time.realtimeSinceStartup + 0.5f;
+                ApplyIcons();
+            }
             if (strayScans < 12 && Time.realtimeSinceStartup >= strayAt)
             {
                 strayAt = Time.realtimeSinceStartup + 0.4f;
@@ -313,9 +318,48 @@ namespace DualScreenBridge
         }
 
         // Touch gestures from the second screen: zoom:<factor> multiplies the zoom, pan:<dx>,<dy> drags by fractions of the picture, view:reset goes back to the start view.
+        // The shop, church, inn and well icons can be hidden from the app; the choice outlives copies, which are rebuilt often.
+        public static bool IconsHidden;
+        private static readonly string[] PlaceSprites = { "map_Well", "map_Tool", "map_Protector", "map_INN", "map_G", "map_Chrch", "map_Bar", "map_Arms" };
+        private readonly System.Collections.Generic.List<Component> iconsOff = new System.Collections.Generic.List<Component>();
+        private float iconsAt;
+
+        // Switches the copy's place icons off (or back on) by disabling the sprite widgets; only widgets this switched off are switched back on.
+        private void ApplyIcons()
+        {
+            if (IconsHidden)
+            {
+                Type widget = GameApi.Find("UIWidget");
+                if (widget == null) return;
+                bool changed = false;
+                foreach (Component c in root.GetComponentsInChildren(widget, false))
+                {
+                    Behaviour b = c as Behaviour;
+                    if (b == null || !b.enabled) continue;
+                    string sprite = GameApi.GetField(c, null, "mSpriteName") as string;
+                    if (sprite == null || Array.IndexOf(PlaceSprites, sprite) < 0) continue;
+                    b.enabled = false;
+                    iconsOff.Add(c);
+                    changed = true;
+                }
+                if (changed) dirty = true;
+            }
+            else if (iconsOff.Count > 0)
+            {
+                foreach (Component c in iconsOff)
+                {
+                    Behaviour b = c as Behaviour;
+                    if (b != null) b.enabled = true;
+                }
+                iconsOff.Clear();
+                dirty = true;
+            }
+        }
+
         public void Gesture(string command)
         {
             dirty = true;
+            if (command.StartsWith("icons:")) { IconsHidden = command == "icons:0"; iconsAt = 0f; return; }
             try
             {
                 System.Globalization.CultureInfo c = System.Globalization.CultureInfo.InvariantCulture;
@@ -565,6 +609,7 @@ namespace DualScreenBridge
             strays.Clear();
             cameraObject = null;
             root = null;
+            iconsOff.Clear();
             instance = null;
             if (target != null)
             {
