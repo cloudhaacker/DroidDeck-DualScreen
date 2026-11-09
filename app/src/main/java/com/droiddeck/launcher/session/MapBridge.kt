@@ -2,6 +2,9 @@ package com.droiddeck.launcher.session
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import android.util.Log
 import com.droiddeck.launcher.core.SessionPart
 import java.io.DataInputStream
@@ -22,7 +25,7 @@ object MapFeed {
     @Volatile var backdrop: Bitmap? = null
     @Volatile var connected: Boolean = false
     /** The bottom-screen map hides the shop, church, inn and well icons while this is true (kept in SessionPrefs, sent to the mod on connect). */
-    var iconsHidden by androidx.compose.runtime.mutableStateOf(false)
+    var iconsHidden by mutableStateOf(false)
     @Volatile var onChange: (() -> Unit)? = null
     @Volatile var onConnect: (() -> Unit)? = null
     @Volatile var sender: ((String) -> Unit)? = null
