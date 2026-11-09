@@ -471,3 +471,7 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - Only affects the screen the session opens with; switching during play works as before. Existing global `secondScreenPanel` memory is unchanged.
 - Not compiled locally (no Android SDK here); CI build is the check.
 - Next queued: icons on/off + hide icons for unvisited places, in-game options menu.
+
+## Roadmap note (from John, after the per-game bottom screen test)
+- Per-game "Bottom screen at start" works. Open item for the next APK change: the general default still opens on Dual screen (game map) whenever a mod connects, which is how this fork behaved before. Most games do not need the second screen, so restore whatever upstream DroidDeck opens with by default (find it in `SecondScreenMode.opening` / `generalOpeningSecondScreenMode` and `gameMapConnected`); the game map should then be opt-in per game via the new row. Not urgent: do it with the next APK-touching feature. Check upstream's behaviour first.
+- Next mod feature: icons on/off and hide icons for places not visited yet; then the in-game options menu.
