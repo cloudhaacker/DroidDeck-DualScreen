@@ -32,7 +32,7 @@ namespace DualScreenBridge
         private int afterDumps;
         private static int widgetDumps;
         // The view inside the copy: zoom and a centre in picture pixels (x right, y down), clamped to the map rows that are sent.
-        private const float DefaultZoom = 2f, MinZoom = 1f, MaxZoom = 4f;
+        private const float DefaultZoom = 2f, MinZoom = 1f, MaxZoom = 4f, WorldMaxZoom = 10f;
         private float zoom = DefaultZoom;
         // The zoom you chose for each kind of view (town, area, world) is kept across rebuilds, so entering a building or a fight does not reset it.
         private static readonly System.Collections.Generic.Dictionary<string, float> SavedZoom = new System.Collections.Generic.Dictionary<string, float>();
@@ -374,7 +374,8 @@ namespace DualScreenBridge
                 if (command == "view:reset") { zoom = BridgeMod.StartZoom; SavedZoom.Remove(zoomSlot); follow = true; return; }
                 if (command.StartsWith("zoom:"))
                 {
-                    zoom = Mathf.Clamp(zoom * float.Parse(command.Substring(5), c), MinZoom, MaxZoom);
+                    // The game's own world map zooms in much closer than the town and area maps do (the same texture, magnified).
+                    zoom = Mathf.Clamp(zoom * float.Parse(command.Substring(5), c), MinZoom, zoomSlot == "1/0" ? WorldMaxZoom : MaxZoom);
                     SavedZoom[zoomSlot] = zoom;
                     return;
                 }
