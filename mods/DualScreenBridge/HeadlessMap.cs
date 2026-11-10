@@ -32,7 +32,7 @@ namespace DualScreenBridge
         private int afterDumps;
         private static int widgetDumps;
         // The view inside the copy: zoom and a centre in picture pixels (x right, y down), clamped to the map rows that are sent.
-        private const float DefaultZoom = 2f, MinZoom = 1f, MaxZoom = 4f, WorldMaxZoom = 10f;
+        private const float DefaultZoom = 2f, MinZoom = 1f, MaxZoom = 4f, WorldMaxZoom = 10f, AreaMaxZoom = 8f;
         private float zoom = DefaultZoom;
         // The zoom you chose for each kind of view (town, area, world) is kept across rebuilds, so entering a building or a fight does not reset it.
         private static readonly System.Collections.Generic.Dictionary<string, float> SavedZoom = new System.Collections.Generic.Dictionary<string, float>();
@@ -181,6 +181,8 @@ namespace DualScreenBridge
             baseOrtho = cam.orthographicSize;
             basePos = cameraObject.transform.position;
             zoomSlot = mode + "/" + BridgeMod.DesiredView;
+            stitched = clippingCleared = false;
+            stitchAt = 0f;
             float remembered;
             zoom = SavedZoom.TryGetValue(zoomSlot, out remembered) ? remembered : BridgeMod.StartZoom;
             follow = true;
@@ -255,6 +257,11 @@ namespace DualScreenBridge
             }
             if (cameraObject != null) ApplyView();
             if (instance != null) Relayer();
+            if (zoomSlot == "1/1" && ownWorld != null && Time.realtimeSinceStartup >= stitchAt)
+            {
+                stitchAt = Time.realtimeSinceStartup + 0.5f;
+                StitchTiles();
+            }
             if (Time.realtimeSinceStartup >= iconsAt)
             {
                 iconsAt = Time.realtimeSinceStartup + 0.5f;
@@ -332,6 +339,13 @@ namespace DualScreenBridge
         private readonly System.Collections.Generic.List<Component> iconsOff = new System.Collections.Generic.List<Component>();
         private float iconsAt;
 
+        // The field's area map shows all of the terrain, not only the nine tiles around the hero: the game's own full-map screen lays out every tile and removes the panel clipping.
+        // Its bounds in picture pixels limit the scrolling; stitched is false until the tiles have been laid out.
+        private bool stitched, clippingCleared;
+        private float stitchMinX, stitchMaxX, stitchMinY, stitchMaxY;
+        private float stitchAt;
+        private bool FullArea { get { return stitched && zoomSlot == "1/1"; } }
+
         // Switches the copy's place icons off (or back on) by disabling the sprite widgets; only widgets this switched off are switched back on.
         private void ApplyIcons()
         {
@@ -364,6 +378,15 @@ namespace DualScreenBridge
             }
         }
 
+        // Far enough out to see the whole terrain map in the field; the other views stop at their normal minimum.
+        private float ZoomFloor()
+        {
+            if (!FullArea) return MinZoom;
+            float rows = target.height * (CropBottom - CropTop);
+            float fit = Mathf.Min(target.width / (stitchMaxX - stitchMinX), rows / (stitchMaxY - stitchMinY));
+            return Mathf.Clamp(fit, 0.02f, MinZoom);
+        }
+
         public void Gesture(string command)
         {
             dirty = true;
@@ -375,7 +398,7 @@ namespace DualScreenBridge
                 if (command.StartsWith("zoom:"))
                 {
                     // The game's own world map zooms in much closer than the town and area maps do (the same texture, magnified).
-                    zoom = Mathf.Clamp(zoom * float.Parse(command.Substring(5), c), MinZoom, zoomSlot == "1/0" ? WorldMaxZoom : MaxZoom);
+                    zoom = Mathf.Clamp(zoom * float.Parse(command.Substring(5), c), ZoomFloor(), zoomSlot == "1/0" ? WorldMaxZoom : (FullArea ? AreaMaxZoom : MaxZoom));
                     SavedZoom[zoomSlot] = zoom;
                     return;
                 }
@@ -486,6 +509,85 @@ namespace DualScreenBridge
         }
 
         // The local map keeps the hero's marker at its centre and lays its tiles out around the hero once, when the window opens.
+        // The same layout the game's full-map screen uses for its own window: 6 rows (a-f) by 7 columns (00-06) of tiles around the block the hero stands in.
+        private void StitchTiles()
+        {
+            if (ownWorld == null || root == null || zoomSlot != "1/1") return;
+            Type worldType = GameApi.Find("GUIMapWorld");
+            GameObject all = GameApi.GetField(ownWorld, worldType, "bigMapAll") as GameObject;
+            GameObject icons = GameApi.GetField(ownWorld, worldType, "bigMapIcon") as GameObject;
+            object sizeObject = GameApi.GetField(ownWorld, worldType, "localMapSize");
+            int[] index = GameApi.GetField(null, worldType, "MapTexPutIndex") as int[];
+            int[] putPos = GameApi.GetField(null, worldType, "MapTexPutPos") as int[];
+            if (all == null || sizeObject == null || index == null || putPos == null) return;
+            Vector3 size = (Vector3)sizeObject;
+            if (size.x <= 0f || size.y <= 0f) return;
+            Vector3 savedRoot = root.transform.position;
+            root.transform.position = new Vector3(0f, 0f, savedRoot.z);
+            int missing = 0;
+            try
+            {
+                for (int row = 0; row < 6; row++)
+                {
+                    for (int col = 0; col < 7; col++)
+                    {
+                        Transform tile = all.transform.Find(string.Format("Sprite ({0}{1:D2})", (char)(97 + row), col));
+                        if (tile == null) { missing++; continue; }
+                        Vector3 p = tile.position;
+                        p.x = size.x * (col - index[0]) + putPos[0];
+                        p.y = -size.y * (row - index[1]) + putPos[1];
+                        tile.position = p;
+                        tile.localScale = new Vector3(size.x, size.y, 1f);
+                        tile.gameObject.SetActive(true);
+                    }
+                }
+                Transform sea = all.transform.Find("Sprite (sea)");
+                if (sea != null) sea.gameObject.SetActive(false);
+                if (icons != null)
+                {
+                    Vector2 offset = (Vector2)GameApi.GetField(null, worldType, "calc_offset");
+                    Vector3 ip = icons.transform.position;
+                    icons.transform.position = new Vector3(offset.x, offset.y, ip.z);
+                    icons.transform.localScale = new Vector3(1.5f, 1.5f, 1f);
+                }
+            }
+            finally
+            {
+                root.transform.position = savedRoot;
+            }
+            if (!clippingCleared)
+            {
+                clippingCleared = true;
+                Type panelType = GameApi.Find("UIPanel");
+                System.Reflection.PropertyInfo clipping = panelType != null ? panelType.GetProperty("clipping") : null;
+                if (clipping != null)
+                {
+                    foreach (Component panel in root.GetComponentsInChildren(panelType, true))
+                        clipping.SetValue(panel, Enum.ToObject(clipping.PropertyType, 0), null);
+                }
+            }
+            try
+            {
+                Type math = GameApi.Find("NGUIMath");
+                object b = math != null ? GameApi.Invoke(null, math, "CalculateAbsoluteWidgetBounds", all.transform) : null;
+                if (b != null && cameraObject != null)
+                {
+                    Bounds bounds = (Bounds)b;
+                    float unit = 2f * baseOrtho / target.height;
+                    float x0 = target.width / 2f + (bounds.min.x - basePos.x) / unit, x1 = target.width / 2f + (bounds.max.x - basePos.x) / unit;
+                    float y0 = target.height / 2f - (bounds.max.y - basePos.y) / unit, y1 = target.height / 2f - (bounds.min.y - basePos.y) / unit;
+                    if (x1 - x0 > 50f && y1 - y0 > 50f)
+                    {
+                        stitchMinX = x0; stitchMaxX = x1; stitchMinY = y0; stitchMaxY = y1;
+                        if (!stitched) MelonLogger.Msg(string.Format("full area map: {0} tiles missing, bounds in picture pixels x {1:0}..{2:0} y {3:0}..{4:0}", missing, x0, x1, y0, y1));
+                        stitched = true;
+                    }
+                }
+            }
+            catch (Exception e) { if (!stitched) MelonLogger.Msg("full area map bounds failed: " + e.Message); }
+            dirty = true;
+        }
+
         private void RefreshLocalMap(Type worldType, Vector3 pos)
         {
             if (Time.realtimeSinceStartup < localRefreshAt || (pos - localRefreshPos).sqrMagnitude < 60f * 60f) return;
@@ -498,6 +600,7 @@ namespace DualScreenBridge
             GameApi.SetField(ownWorld, worldType, "localMapSize", GameApi.Invoke(ownWorld, worldType, "GetLocalMapSize"));
             GameApi.Invoke(ownWorld, worldType, "GetLocalMapInfo", GameApi.GetField(null, worldType, "MapTexPutPos"), GameApi.GetField(null, worldType, "MapTexPutIndex"));
             GameApi.Invoke(ownWorld, worldType, "SetMapDrawItem");
+            StitchTiles();
             if (localRefreshLogs < 6) { localRefreshLogs++; MelonLogger.Msg("local map re-laid out around " + pos); }
             dirty = true;
         }
@@ -537,8 +640,17 @@ namespace DualScreenBridge
                 else if (!heroSeen) { viewX = w / 2f; viewY = centreY; }
             }
             float halfW = w / zoom / 2f, halfH = (bottom - top) / zoom / 2f;
-            viewX = Mathf.Clamp(viewX, halfW, w - halfW);
-            viewY = Mathf.Clamp(viewY, top + halfH, bottom - halfH);
+            if (FullArea)
+            {
+                // Scrolling is limited to the whole terrain map; when the view is larger than the map it stays centred on it.
+                viewX = stitchMaxX - stitchMinX <= halfW * 2f ? (stitchMinX + stitchMaxX) / 2f : Mathf.Clamp(viewX, stitchMinX + halfW, stitchMaxX - halfW);
+                viewY = stitchMaxY - stitchMinY <= halfH * 2f ? (stitchMinY + stitchMaxY) / 2f : Mathf.Clamp(viewY, stitchMinY + halfH, stitchMaxY - halfH);
+            }
+            else
+            {
+                viewX = Mathf.Clamp(viewX, halfW, w - halfW);
+                viewY = Mathf.Clamp(viewY, top + halfH, bottom - halfH);
+            }
             if (zoom == lastZoom && viewX == lastX && viewY == lastY) return;
             lastZoom = zoom; lastX = viewX; lastY = viewY;
             dirty = true;
