@@ -267,6 +267,7 @@ namespace DualScreenBridge
             {
                 iconsAt = Time.realtimeSinceStartup + 0.5f;
                 ApplyIcons();
+                ApplyReveal();
             }
             if (strayScans < 12 && Time.realtimeSinceStartup >= strayAt)
             {
@@ -339,6 +340,42 @@ namespace DualScreenBridge
         private static readonly string[] PlaceSprites = { "map_Well", "map_Tool", "map_Protector", "map_INN", "map_G", "map_Chrch", "map_Bar", "map_Arms" };
         private readonly System.Collections.Generic.List<Component> iconsOff = new System.Collections.Generic.List<Component>();
         private float iconsAt;
+
+        // The world map only knows which places you have found once it has been opened in the field; opened in a town it shows every place.
+        // So the icons showing during a field visit are remembered, and a town's world map hides the others.
+        private static readonly System.Collections.Generic.HashSet<string> revealedIcons = new System.Collections.Generic.HashSet<string>();
+        private bool inFieldNow;
+        private readonly System.Collections.Generic.List<Component> revealOff = new System.Collections.Generic.List<Component>();
+
+        private static string IconKey(Component c)
+        {
+            Vector3 p = c.transform.localPosition;
+            return c.transform.name + "@" + Mathf.RoundToInt(p.x) + "," + Mathf.RoundToInt(p.y);
+        }
+
+        private void ApplyReveal()
+        {
+            if (ownWorld == null || Age < 1.5f) return;
+            Type worldType = GameApi.Find("GUIMapWorld"), widget = GameApi.Find("UIWidget");
+            if (worldType == null || widget == null) return;
+            if (Convert.ToBoolean(GameApi.GetField(ownWorld, worldType, "isLocalMap"))) return;
+            GameObject icons = GameApi.GetField(ownWorld, worldType, "smallMapIcon") as GameObject;
+            if (icons == null) return;
+            foreach (Component c in icons.GetComponentsInChildren(widget, false))
+            {
+                string sprite = GameApi.GetField(c, null, "mSpriteName") as string;
+                if (sprite == null || sprite.Contains("cursor") || sprite.Contains("star")) continue;
+                if (inFieldNow)
+                {
+                    if (revealedIcons.Add(IconKey(c)) && revealedIcons.Count % 25 == 1) MelonLogger.Msg("world map: " + revealedIcons.Count + " revealed icons remembered");
+                }
+                else if (revealedIcons.Count > 0 && !revealedIcons.Contains(IconKey(c)))
+                {
+                    Behaviour b = c as Behaviour;
+                    if (b != null && b.enabled) { b.enabled = false; revealOff.Add(c); dirty = true; }
+                }
+            }
+        }
 
         // The field's area map shows all of the terrain, not only the nine tiles around the hero: the game's own full-map screen lays out every tile and removes the panel clipping.
         // Its bounds in picture pixels limit the scrolling; stitched is false until the tiles have been laid out.
@@ -441,7 +478,8 @@ namespace DualScreenBridge
                     {
                         GameApi.Invoke(ownWorld, worldType, "GetPlayerInfo", info);
                         Vector3 reported = (Vector3)info[0];
-                        if (Mathf.Max(Mathf.Abs(reported.x), Mathf.Abs(reported.z)) > 2000f)
+                        inFieldNow = Mathf.Max(Mathf.Abs(reported.x), Mathf.Abs(reported.z)) > 2000f;
+                        if (inFieldNow)
                         {
                             lastFieldPos = reported; lastFieldRot = (Vector3)info[1]; haveFieldPos = true;
                         }

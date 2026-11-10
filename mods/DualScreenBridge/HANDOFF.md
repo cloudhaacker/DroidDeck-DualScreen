@@ -525,3 +525,9 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 ## v0.6.50 result (confirmed working)
 - John: the full area map in the field works: no more zoom creep, stays on the hero, zoom is remembered. Log (998 lines): `full area map: 0 tiles missing, tile 768x672, index 5,1, bounds x -4950..1098 y -615..3921` on every copy (size constant, bounds near the picture), no warnings or errors.
 - Open items, in order of value: (1) world icons show everything until a field visit (town world map); (2) restore upstream's default bottom screen in the APK (game map opt-in per game); (3) the scrolled view jumping when a re-layout happens while scrolled away from the hero (follow off); (4) in-game options menu; (5) hide icons for unvisited places on the area map if the game does not already (verify in a town with an unfound shop).
+
+## v0.6.51 (world map icons in towns limited to what the field showed; DLL only, built, untested)
+- Problem (John): the world map opened in a town shows every icon until a field visit; in the field only revealed places show.
+- Fix: while a world copy is built in the field (`inFieldNow`, the same player-position test as the cached hero position) `ApplyReveal` remembers every active icon widget under `smallMapIcon` (key = widget name + rounded local position, static `revealedIcons`, cursor and star sprites skipped). A world copy built in a town disables (enabled=false) icon widgets that are not in that set. Runs every 0.5 s with `ApplyIcons`.
+- Limit: the set only fills when the world view has been opened in the field at least once since the game started; before that the town still shows everything. Log line `world map: N revealed icons remembered` marks progress (every 25).
+- Idea if that limit bothers him: also fill the set from the first world copy after loading a save in the field, or find the game's own reveal flags (SetMapDrawItem / ResetMapDrawItem on GUIMapWorld).

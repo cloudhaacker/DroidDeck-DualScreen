@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.50", "DroidDeck Dual Screen")]
+[assembly: MelonInfo(typeof(DualScreenBridge.BridgeMod), "DualScreenBridge", "0.6.51", "DroidDeck Dual Screen")]
 
 namespace DualScreenBridge
 {
