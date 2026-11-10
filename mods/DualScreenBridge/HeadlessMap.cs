@@ -523,30 +523,39 @@ namespace DualScreenBridge
             if (all == null || sizeObject == null || index == null || putPos == null) return;
             Vector3 size = (Vector3)sizeObject;
             if (size.x <= 0f || size.y <= 0f) return;
-            // The game's own screen places these in world units because its window has no scaling; this copy sits under a scaled UI root, so the same numbers go in as local positions.
+            // Placed exactly as the game places its own nine tiles: in world positions, with this copy moved to the origin for the moment.
+            Vector3 savedRoot = root.transform.position;
+            root.transform.position = new Vector3(0f, 0f, savedRoot.z);
             int missing = 0;
-            for (int row = 0; row < 6; row++)
+            try
             {
-                for (int col = 0; col < 7; col++)
+                for (int row = 0; row < 6; row++)
                 {
-                    Transform tile = all.transform.Find(string.Format("Sprite ({0}{1:D2})", (char)(97 + row), col));
-                    if (tile == null) { missing++; continue; }
-                    Vector3 p = tile.localPosition;
-                    p.x = size.x * (col - index[0]) + putPos[0];
-                    p.y = -size.y * (row - index[1]) + putPos[1];
-                    tile.localPosition = p;
-                    tile.localScale = new Vector3(size.x, size.y, 1f);
-                    tile.gameObject.SetActive(true);
+                    for (int col = 0; col < 7; col++)
+                    {
+                        Transform tile = all.transform.Find(string.Format("Sprite ({0}{1:D2})", (char)(97 + row), col));
+                        if (tile == null) { missing++; continue; }
+                        Vector3 p = tile.position;
+                        p.x = size.x * (col - index[0]) + putPos[0];
+                        p.y = -size.y * (row - index[1]) + putPos[1];
+                        tile.position = p;
+                        tile.localScale = new Vector3(size.x, size.y, 1f);
+                        tile.gameObject.SetActive(true);
+                    }
+                }
+                Transform sea = all.transform.Find("Sprite (sea)");
+                if (sea != null) sea.gameObject.SetActive(false);
+                if (icons != null)
+                {
+                    Vector2 offset = (Vector2)GameApi.GetField(null, worldType, "calc_offset");
+                    Vector3 ip = icons.transform.position;
+                    icons.transform.position = new Vector3(offset.x, offset.y, ip.z);
+                    icons.transform.localScale = new Vector3(1.5f, 1.5f, 1f);
                 }
             }
-            Transform sea = all.transform.Find("Sprite (sea)");
-            if (sea != null) sea.gameObject.SetActive(false);
-            if (icons != null)
+            finally
             {
-                Vector2 offset = (Vector2)GameApi.GetField(null, worldType, "calc_offset");
-                Vector3 ip = icons.transform.localPosition;
-                icons.transform.localPosition = new Vector3(offset.x, offset.y, ip.z);
-                icons.transform.localScale = new Vector3(1.5f, 1.5f, 1f);
+                root.transform.position = savedRoot;
             }
             if (!clippingCleared)
             {
@@ -559,25 +568,31 @@ namespace DualScreenBridge
                         clipping.SetValue(panel, Enum.ToObject(clipping.PropertyType, 0), null);
                 }
             }
-            try
+            // Bounds from the tiles themselves (their positions are current; the game's bounds helper reads positions that are not refreshed after moving the copy).
+            if (cameraObject != null && target != null)
             {
-                Type math = GameApi.Find("NGUIMath");
-                object b = math != null ? GameApi.Invoke(null, math, "CalculateAbsoluteWidgetBounds", all.transform) : null;
-                if (b != null && cameraObject != null)
+                float minX = float.MaxValue, maxX = float.MinValue, minY = float.MaxValue, maxY = float.MinValue;
+                for (int row = 0; row < 6; row++)
                 {
-                    Bounds bounds = (Bounds)b;
-                    float unit = 2f * baseOrtho / target.height;
-                    float x0 = target.width / 2f + (bounds.min.x - basePos.x) / unit, x1 = target.width / 2f + (bounds.max.x - basePos.x) / unit;
-                    float y0 = target.height / 2f - (bounds.max.y - basePos.y) / unit, y1 = target.height / 2f - (bounds.min.y - basePos.y) / unit;
-                    if (x1 - x0 > 50f && y1 - y0 > 50f)
+                    for (int col = 0; col < 7; col++)
                     {
-                        stitchMinX = x0; stitchMaxX = x1; stitchMinY = y0; stitchMaxY = y1;
-                        if (!stitched) MelonLogger.Msg(string.Format("full area map: {0} tiles missing, bounds in picture pixels x {1:0}..{2:0} y {3:0}..{4:0}", missing, x0, x1, y0, y1));
-                        stitched = true;
+                        Transform tile = all.transform.Find(string.Format("Sprite ({0}{1:D2})", (char)(97 + row), col));
+                        if (tile == null) continue;
+                        float hw = Mathf.Abs(tile.lossyScale.x) / 2f, hh = Mathf.Abs(tile.lossyScale.y) / 2f;
+                        minX = Mathf.Min(minX, tile.position.x - hw); maxX = Mathf.Max(maxX, tile.position.x + hw);
+                        minY = Mathf.Min(minY, tile.position.y - hh); maxY = Mathf.Max(maxY, tile.position.y + hh);
                     }
                 }
+                float unit = 2f * baseOrtho / target.height;
+                float x0 = target.width / 2f + (minX - basePos.x) / unit, x1 = target.width / 2f + (maxX - basePos.x) / unit;
+                float y0 = target.height / 2f - (maxY - basePos.y) / unit, y1 = target.height / 2f - (minY - basePos.y) / unit;
+                if (maxX > minX && x1 - x0 > 50f && y1 - y0 > 50f)
+                {
+                    stitchMinX = x0; stitchMaxX = x1; stitchMinY = y0; stitchMaxY = y1;
+                    if (!stitched) MelonLogger.Msg(string.Format("full area map: {0} tiles missing, tile {1:0}x{2:0}, index {3},{4}, bounds in picture pixels x {5:0}..{6:0} y {7:0}..{8:0}", missing, size.x, size.y, index[0], index[1], x0, x1, y0, y1));
+                    stitched = true;
+                }
             }
-            catch (Exception e) { if (!stitched) MelonLogger.Msg("full area map bounds failed: " + e.Message); }
             dirty = true;
         }
 
