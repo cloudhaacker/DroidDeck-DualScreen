@@ -34,6 +34,12 @@ namespace DualScreenBridge
         // The view inside the copy: zoom and a centre in picture pixels (x right, y down), clamped to the map rows that are sent.
         private const float DefaultZoom = 2f, MinZoom = 1f, MaxZoom = 4f;
         private float zoom = DefaultZoom;
+        // The zoom you chose for each kind of view (town, area, world) is kept across rebuilds, so entering a building or a fight does not reset it.
+        private static readonly System.Collections.Generic.Dictionary<string, float> SavedZoom = new System.Collections.Generic.Dictionary<string, float>();
+        private string zoomSlot = "";
+        // The last hero position and facing seen while in the field; a town reports its own small coordinates, which put the world map's cursor in the middle.
+        private static Vector3 lastFieldPos, lastFieldRot;
+        private static bool haveFieldPos;
         private bool follow = true;
         private float viewX, viewY;
         private bool heroSeen;
@@ -174,7 +180,9 @@ namespace DualScreenBridge
             ownCamera = cam;
             baseOrtho = cam.orthographicSize;
             basePos = cameraObject.transform.position;
-            zoom = BridgeMod.StartZoom;
+            zoomSlot = mode + "/" + BridgeMod.DesiredView;
+            float remembered;
+            zoom = SavedZoom.TryGetValue(zoomSlot, out remembered) ? remembered : BridgeMod.StartZoom;
             follow = true;
             cursor = null;
             cursorScanAt = 0f;
@@ -363,10 +371,11 @@ namespace DualScreenBridge
             try
             {
                 System.Globalization.CultureInfo c = System.Globalization.CultureInfo.InvariantCulture;
-                if (command == "view:reset") { zoom = BridgeMod.StartZoom; follow = true; return; }
+                if (command == "view:reset") { zoom = BridgeMod.StartZoom; SavedZoom.Remove(zoomSlot); follow = true; return; }
                 if (command.StartsWith("zoom:"))
                 {
                     zoom = Mathf.Clamp(zoom * float.Parse(command.Substring(5), c), MinZoom, MaxZoom);
+                    SavedZoom[zoomSlot] = zoom;
                     return;
                 }
                 if (command.StartsWith("pan:") && target != null)
@@ -405,6 +414,15 @@ namespace DualScreenBridge
                     if (world)
                     {
                         GameApi.Invoke(ownWorld, worldType, "GetPlayerInfo", info);
+                        Vector3 reported = (Vector3)info[0];
+                        if (Mathf.Max(Mathf.Abs(reported.x), Mathf.Abs(reported.z)) > 2000f)
+                        {
+                            lastFieldPos = reported; lastFieldRot = (Vector3)info[1]; haveFieldPos = true;
+                        }
+                        else if (haveFieldPos)
+                        {
+                            info[0] = lastFieldPos; info[1] = lastFieldRot;
+                        }
                         GameApi.SetField(ownWorld, worldType, "playerPos", info[0]);
                         GameApi.SetField(ownWorld, worldType, "playerRot", info[1]);
                         bool local = Convert.ToBoolean(GameApi.GetField(ownWorld, worldType, "isLocalMap"));
