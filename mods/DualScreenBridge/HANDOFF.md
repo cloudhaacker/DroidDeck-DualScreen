@@ -521,3 +521,7 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - Second bug: `StitchTiles` measures bounds from the tiles, but `RefreshLocalMap` calls it while the root is moved to the origin for the game's calls, so those bounds were in the wrong frame (log still showed x -27450..-21402 although tile size 768x672 and index 5,1 were right). Bounds are now taken relative to the root's parked place (`shiftX/shiftY`).
 - `HideWindowChrome` disables the widgets under `Map_Top*` and `CloseButton*` (buttons, bars, the 1440x2556 black backdrop) that are not part of the tiles or icons.
 - Check next log: the `full area map:` bounds should be near the picture (x about -2500..3500) and the tile size should stay 768x672 over a walk.
+
+## v0.6.50 result (confirmed working)
+- John: the full area map in the field works: no more zoom creep, stays on the hero, zoom is remembered. Log (998 lines): `full area map: 0 tiles missing, tile 768x672, index 5,1, bounds x -4950..1098 y -615..3921` on every copy (size constant, bounds near the picture), no warnings or errors.
+- Open items, in order of value: (1) world icons show everything until a field visit (town world map); (2) restore upstream's default bottom screen in the APK (game map opt-in per game); (3) the scrolled view jumping when a re-layout happens while scrolled away from the hero (follow off); (4) in-game options menu; (5) hide icons for unvisited places on the area map if the game does not already (verify in a town with an unfound shop).
