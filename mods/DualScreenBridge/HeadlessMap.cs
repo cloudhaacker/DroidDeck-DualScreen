@@ -182,7 +182,7 @@ namespace DualScreenBridge
             basePos = cameraObject.transform.position;
             // The game's own choice (-1) in the field is the area map.
             zoomSlot = mode + "/" + (BridgeMod.DesiredView < 0 ? 1 : BridgeMod.DesiredView);
-            stitched = clippingCleared = false;
+            stitched = clippingCleared = haveTileSize = false;
             stitchAt = 0f;
             float remembered;
             zoom = SavedZoom.TryGetValue(zoomSlot, out remembered) ? remembered : BridgeMod.StartZoom;
@@ -342,7 +342,8 @@ namespace DualScreenBridge
 
         // The field's area map shows all of the terrain, not only the nine tiles around the hero: the game's own full-map screen lays out every tile and removes the panel clipping.
         // Its bounds in picture pixels limit the scrolling; stitched is false until the tiles have been laid out.
-        private bool stitched, clippingCleared;
+        private bool stitched, clippingCleared, haveTileSize;
+        private object baseTileSize;
         private float stitchMinX, stitchMaxX, stitchMinY, stitchMaxY;
         private float stitchAt;
         private bool FullArea { get { return stitched && zoomSlot == "1/1"; } }
@@ -571,6 +572,8 @@ namespace DualScreenBridge
             // Bounds from the tiles themselves (their positions are current; the game's bounds helper reads positions that are not refreshed after moving the copy).
             if (cameraObject != null && target != null)
             {
+                // This also runs while the copy is moved to the origin for the game's own calls; positions are taken relative to the copy's parked place.
+                float shiftX = root.transform.position.x - FarAway, shiftY = root.transform.position.y - FarAway;
                 float minX = float.MaxValue, maxX = float.MinValue, minY = float.MaxValue, maxY = float.MinValue;
                 for (int row = 0; row < 6; row++)
                 {
@@ -579,8 +582,9 @@ namespace DualScreenBridge
                         Transform tile = all.transform.Find(string.Format("Sprite ({0}{1:D2})", (char)(97 + row), col));
                         if (tile == null) continue;
                         float hw = Mathf.Abs(tile.lossyScale.x) / 2f, hh = Mathf.Abs(tile.lossyScale.y) / 2f;
-                        minX = Mathf.Min(minX, tile.position.x - hw); maxX = Mathf.Max(maxX, tile.position.x + hw);
-                        minY = Mathf.Min(minY, tile.position.y - hh); maxY = Mathf.Max(maxY, tile.position.y + hh);
+                        float tx = tile.position.x - shiftX, ty = tile.position.y - shiftY;
+                        minX = Mathf.Min(minX, tx - hw); maxX = Mathf.Max(maxX, tx + hw);
+                        minY = Mathf.Min(minY, ty - hh); maxY = Mathf.Max(maxY, ty + hh);
                     }
                 }
                 float unit = 2f * baseOrtho / target.height;
@@ -593,7 +597,25 @@ namespace DualScreenBridge
                     stitched = true;
                 }
             }
+            HideWindowChrome(all.transform, icons != null ? icons.transform : null);
             dirty = true;
+        }
+
+        // The map window's own buttons, bars and black backdrop sit outside the picture at normal zoom; zoomed far out they would show up on the map.
+        private void HideWindowChrome(Transform tiles, Transform iconRootTransform)
+        {
+            Type widget = GameApi.Find("UIWidget");
+            if (widget == null) return;
+            foreach (Component c in root.GetComponentsInChildren(widget, false))
+            {
+                Behaviour b = c as Behaviour;
+                if (b == null || !b.enabled) continue;
+                if (c.transform.IsChildOf(tiles) || (iconRootTransform != null && c.transform.IsChildOf(iconRootTransform))) continue;
+                for (Transform t = c.transform; t != null && t != root.transform; t = t.parent)
+                {
+                    if (t.name.StartsWith("Map_Top") || t.name.StartsWith("CloseButton")) { b.enabled = false; break; }
+                }
+            }
         }
 
         private void RefreshLocalMap(Type worldType, Vector3 pos)
@@ -605,7 +627,9 @@ namespace DualScreenBridge
             GameApi.Invoke(null, GameApi.Find("guidmap"), "SetSpecificPlayerPos", spot);
             GameApi.SetField(ownWorld, worldType, "playerPos", spot[0]);
             GameApi.SetField(null, worldType, "interior", spot[1]);
-            GameApi.SetField(ownWorld, worldType, "localMapSize", GameApi.Invoke(ownWorld, worldType, "GetLocalMapSize"));
+            // The game reads the tile size from tile a00's own scale; the full layout rescales that tile every time, so the size is read once.
+            if (!haveTileSize) { baseTileSize = GameApi.Invoke(ownWorld, worldType, "GetLocalMapSize"); haveTileSize = true; }
+            GameApi.SetField(ownWorld, worldType, "localMapSize", baseTileSize);
             GameApi.Invoke(ownWorld, worldType, "GetLocalMapInfo", GameApi.GetField(null, worldType, "MapTexPutPos"), GameApi.GetField(null, worldType, "MapTexPutIndex"));
             GameApi.Invoke(ownWorld, worldType, "SetMapDrawItem");
             StitchTiles();
