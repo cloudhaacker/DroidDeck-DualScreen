@@ -180,7 +180,8 @@ namespace DualScreenBridge
             ownCamera = cam;
             baseOrtho = cam.orthographicSize;
             basePos = cameraObject.transform.position;
-            zoomSlot = mode + "/" + BridgeMod.DesiredView;
+            // The game's own choice (-1) in the field is the area map.
+            zoomSlot = mode + "/" + (BridgeMod.DesiredView < 0 ? 1 : BridgeMod.DesiredView);
             stitched = clippingCleared = false;
             stitchAt = 0f;
             float remembered;
@@ -522,38 +523,30 @@ namespace DualScreenBridge
             if (all == null || sizeObject == null || index == null || putPos == null) return;
             Vector3 size = (Vector3)sizeObject;
             if (size.x <= 0f || size.y <= 0f) return;
-            Vector3 savedRoot = root.transform.position;
-            root.transform.position = new Vector3(0f, 0f, savedRoot.z);
+            // The game's own screen places these in world units because its window has no scaling; this copy sits under a scaled UI root, so the same numbers go in as local positions.
             int missing = 0;
-            try
+            for (int row = 0; row < 6; row++)
             {
-                for (int row = 0; row < 6; row++)
+                for (int col = 0; col < 7; col++)
                 {
-                    for (int col = 0; col < 7; col++)
-                    {
-                        Transform tile = all.transform.Find(string.Format("Sprite ({0}{1:D2})", (char)(97 + row), col));
-                        if (tile == null) { missing++; continue; }
-                        Vector3 p = tile.position;
-                        p.x = size.x * (col - index[0]) + putPos[0];
-                        p.y = -size.y * (row - index[1]) + putPos[1];
-                        tile.position = p;
-                        tile.localScale = new Vector3(size.x, size.y, 1f);
-                        tile.gameObject.SetActive(true);
-                    }
-                }
-                Transform sea = all.transform.Find("Sprite (sea)");
-                if (sea != null) sea.gameObject.SetActive(false);
-                if (icons != null)
-                {
-                    Vector2 offset = (Vector2)GameApi.GetField(null, worldType, "calc_offset");
-                    Vector3 ip = icons.transform.position;
-                    icons.transform.position = new Vector3(offset.x, offset.y, ip.z);
-                    icons.transform.localScale = new Vector3(1.5f, 1.5f, 1f);
+                    Transform tile = all.transform.Find(string.Format("Sprite ({0}{1:D2})", (char)(97 + row), col));
+                    if (tile == null) { missing++; continue; }
+                    Vector3 p = tile.localPosition;
+                    p.x = size.x * (col - index[0]) + putPos[0];
+                    p.y = -size.y * (row - index[1]) + putPos[1];
+                    tile.localPosition = p;
+                    tile.localScale = new Vector3(size.x, size.y, 1f);
+                    tile.gameObject.SetActive(true);
                 }
             }
-            finally
+            Transform sea = all.transform.Find("Sprite (sea)");
+            if (sea != null) sea.gameObject.SetActive(false);
+            if (icons != null)
             {
-                root.transform.position = savedRoot;
+                Vector2 offset = (Vector2)GameApi.GetField(null, worldType, "calc_offset");
+                Vector3 ip = icons.transform.localPosition;
+                icons.transform.localPosition = new Vector3(offset.x, offset.y, ip.z);
+                icons.transform.localScale = new Vector3(1.5f, 1.5f, 1f);
             }
             if (!clippingCleared)
             {
