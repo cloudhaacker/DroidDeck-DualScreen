@@ -11,6 +11,7 @@ enum class SecondScreenMode(val id: String, @StringRes val label: Int) {
     TERMINAL("terminal", R.string.second_mode_terminal),
     DECK_CONTROLS("deck-controls", R.string.second_mode_deck_controls),
     GAME_MAP("game-map", R.string.second_mode_game_map),
+    SCREEN_ZOOM("screen-zoom", R.string.second_mode_screen_zoom),
     DASHBOARD("dashboard", R.string.second_mode_dashboard),
     DESKTOP("desktop", R.string.second_mode_desktop);
 

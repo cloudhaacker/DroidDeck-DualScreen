@@ -56,6 +56,7 @@ internal class BarExtra(
     val vector: ImageVector? = null,
     val active: Boolean = false,
     val tag: String? = null,
+    val label: String? = null,
     val onClick: () -> Unit,
 )
 
@@ -93,7 +94,7 @@ internal fun BottomScreenBar(model: BottomBarModel, modifier: Modifier = Modifie
                 modifier = (if (fits) Modifier.weight(1f) else Modifier).padding(start = 4.dp),
             ) else if (fits) Spacer(Modifier.weight(1f))
             model.extras.forEach { extra ->
-                BarButton(extra.description, extra.tag?.let { Modifier.testTag(it) } ?: Modifier, icon = extra.icon, vector = extra.vector,
+                BarButton(extra.description, extra.tag?.let { Modifier.testTag(it) } ?: Modifier, icon = extra.icon, vector = extra.vector, label = extra.label,
                     active = extra.active, onClick = extra.onClick)
             }
             BarActions(model.onMenu, model.menuActive, model.onSteam, model.onQam)

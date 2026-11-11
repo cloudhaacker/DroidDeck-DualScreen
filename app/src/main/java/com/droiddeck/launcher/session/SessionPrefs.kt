@@ -122,6 +122,13 @@ object SessionPrefs {
         prefs(context).edit().putBoolean("mapIconsHidden", hidden).apply()
     }
 
+    /** Screen zoom settings for one game (or "general"): "centreX,centreY,zoom,sharp,fps", or null for the defaults. */
+    fun screenZoom(context: Context, key: String): String? = prefs(context).getString("screenZoom:$key", null)
+
+    fun setScreenZoom(context: Context, key: String, value: String) {
+        prefs(context).edit().putString("screenZoom:$key", value).apply()
+    }
+
     /** The bottom-screen panel one game opens with (a [SecondScreenMode] id), or null to use the general behaviour. */
     fun gameBottomStart(context: Context, appId: Long): String? = prefs(context).getString("bottomStart:$appId", null)
 

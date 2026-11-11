@@ -1177,7 +1177,7 @@ private fun SteamVrRow(a: DrawerActions) {
 }
 
 internal fun secondScreenModes(none: Boolean, deckPad: Boolean, dashboard: Boolean, desktop: Boolean): List<SecondScreenMode> =
-    (if (none) listOf(SecondScreenMode.NONE) else emptyList()) + listOf(SecondScreenMode.KEYBOARD_TRACKPAD, SecondScreenMode.TERMINAL, SecondScreenMode.GAME_MAP) +
+    (if (none) listOf(SecondScreenMode.NONE) else emptyList()) + listOf(SecondScreenMode.KEYBOARD_TRACKPAD, SecondScreenMode.TERMINAL, SecondScreenMode.GAME_MAP, SecondScreenMode.SCREEN_ZOOM) +
         (if (deckPad) listOf(SecondScreenMode.DECK_CONTROLS) else emptyList()) +
         (if (dashboard) listOf(SecondScreenMode.DASHBOARD) else emptyList()) +
         (if (desktop) listOf(SecondScreenMode.DESKTOP) else emptyList())
@@ -1269,6 +1269,7 @@ private fun DrawerBottomStartRow(host: MenuHost, a: DrawerActions, modifier: Mod
     val choices: List<Pair<String?, String>> = listOf(
         null to stringResource(R.string.comp_game_use_general),
         com.droiddeck.launcher.input.SecondScreenMode.GAME_MAP.id to stringResource(com.droiddeck.launcher.input.SecondScreenMode.GAME_MAP.label),
+        com.droiddeck.launcher.input.SecondScreenMode.SCREEN_ZOOM.id to stringResource(com.droiddeck.launcher.input.SecondScreenMode.SCREEN_ZOOM.label),
         com.droiddeck.launcher.input.SecondScreenMode.KEYBOARD_TRACKPAD.id to stringResource(com.droiddeck.launcher.input.SecondScreenMode.KEYBOARD_TRACKPAD.label),
         com.droiddeck.launcher.input.SecondScreenMode.TERMINAL.id to stringResource(com.droiddeck.launcher.input.SecondScreenMode.TERMINAL.label),
         com.droiddeck.launcher.input.SecondScreenMode.DASHBOARD.id to stringResource(com.droiddeck.launcher.input.SecondScreenMode.DASHBOARD.label),

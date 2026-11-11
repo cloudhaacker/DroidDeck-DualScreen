@@ -1998,6 +1998,14 @@
     <string name="second_map_icons">Icons</string>
     <string name="second_idle_mod">DualScreenBridge</string>
     <string name="second_idle_credit">Made with MelonLoader</string>
+    <string name="second_mode_screen_zoom">Screen zoom</string>
+    <string name="second_zoom_sharp">Sharp</string>
+    <string name="second_zoom_smooth">Smooth</string>
+    <string name="second_zoom_pixels">Pixels: tap to switch sharp or smooth</string>
+    <string name="second_zoom_fps">%1$d fps</string>
+    <string name="second_zoom_fps_detail">Zoom refresh rate: tap to switch 30 or 60</string>
+    <string name="second_zoom_waiting">Waiting for the game picture</string>
+    <string name="second_zoom_hint">Pinch to zoom, drag to move, double tap for the whole screen</string>
     <string name="second_map_waiting">Waiting for a game on 127.0.0.1:47200</string>
     <string name="second_mode_dashboard">Dashboard</string>
     <string name="second_mode_desktop">Desktop</string>

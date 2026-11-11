@@ -3485,6 +3485,14 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         }, SETTINGS_WATCH_MS)
     }
 
+    /** The surface holding the game picture for the bottom-screen zoom; none while the game itself is on the bottom screen. */
+    internal fun zoomSource(): SurfaceView? = when {
+        glassesOutputActive -> glassesScreen?.surfaceView
+        bottomOutputActive -> null
+        ::surfaceView.isInitialized -> surfaceView
+        else -> null
+    }
+
     private fun captureScreenshot(onDone: (Boolean) -> Unit) {
         val source = if (glassesOutputActive) glassesScreen?.surfaceView else if (bottomOutputActive) bottomGame?.surfaceView
             else if (::surfaceView.isInitialized) surfaceView else null

@@ -275,6 +275,7 @@ class SecondScreenPresentation(
             SecondScreenMode.KEYBOARD_TRACKPAD -> renderKeyboardAndTrackpad()
             SecondScreenMode.TERMINAL -> renderTerminal()
             SecondScreenMode.GAME_MAP -> renderGameMap()
+            SecondScreenMode.SCREEN_ZOOM -> renderScreenZoom()
             SecondScreenMode.DECK_CONTROLS -> root.addView(DeckControlsPanel(context, onClose, onSteamMenu, onQam, pad, onMenu = onMenu, onSwap = onSwap), weightParams())
             SecondScreenMode.DASHBOARD -> renderDashboard()
             SecondScreenMode.DESKTOP -> {
@@ -357,6 +358,25 @@ class SecondScreenPresentation(
         val view = SessionMapView(context)
         root.addView(view, weightParams())
         MapFeed.onChange = { view.postInvalidate() }
+    }
+
+    private fun renderScreenZoom() {
+        ScreenZoom.load(context)
+        bar(SecondScreenMode.SCREEN_ZOOM) {
+            listOf(
+                BarExtra(context.getString(R.string.second_zoom_pixels), tag = "bottom-zoom-pixels",
+                    label = context.getString(if (ScreenZoom.sharp) R.string.second_zoom_sharp else R.string.second_zoom_smooth)) {
+                    ScreenZoom.sharp = !ScreenZoom.sharp
+                    ScreenZoom.save(context)
+                },
+                BarExtra(context.getString(R.string.second_zoom_fps_detail), tag = "bottom-zoom-fps",
+                    label = context.getString(R.string.second_zoom_fps, ScreenZoom.fps)) {
+                    ScreenZoom.fps = if (ScreenZoom.fps == 30) 60 else 30
+                    ScreenZoom.save(context)
+                },
+            )
+        }
+        root.addView(ScreenZoomView(context) { sessionActivity.zoomSource() }, weightParams())
     }
 
     private fun closeTerminal() {
