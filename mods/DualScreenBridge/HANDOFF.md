@@ -539,3 +539,15 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - John's choices: fill the screen; pick the area by pinch and drag (no box drawing); double tap shows the whole game screen and a second double tap goes back; Sharp/Smooth pixels toggle and 30/60 fps toggle as text buttons in the bar. All of it (centre, zoom up to 16x, sharp, fps) saved per game in `SessionPrefs.screenZoom("screenZoom:<gameId|general>")` via `ScreenZoom.save`.
 - `BarExtra` gained `label` (text button) for those toggles.
 - To check on the Thor: speed cost at 30 vs 60 fps; picture lag while pinching (the zoom only changes on the next copy); that settings stick per game after a restart.
+
+## Merge of DroidDeck 0.7.1 (branch dual-screen-0.7.1, APK only)
+- John used GitHub's Sync fork, which only updates `main` (plain upstream, package `com.droiddeck.launcher`). Its APK clashes with the official DroidDeck install (different signing key) and has none of the fork's features; upstream's sign/packs/publish jobs always fail in the fork because they need upstream secrets. Our builds use package `com.droiddeck.dualscreen` and the repo test key, so they install beside the official app and update each other.
+- `main` (0.7.1, 374 commits) merged into a copy of `dual-screen-map`; 15 conflict spots in 10 files resolved by keeping both sides:
+  - `SecondScreenMode`: upstream's `bindings` and new `CUSTOM_CONTROLS`, plus `GAME_MAP` and `SCREEN_ZOOM`.
+  - `SessionPrefs`: the remembered panel is now per session kind (`secondScreenPanel(context, desktop)`); ours (map icons, screen zoom, per-game bottom start, start page) kept.
+  - `SessionActivity`: upstream's new `openingPanel()` is the general default; `openingSecondScreenMode()` puts the per-game choice and the auto-opened game map in front of it. Upstream renamed the screenshot copy to `copyGameFrame`; `zoomSource()` kept beside it.
+  - `SecondScreenPresentation`: upstream moved bars to `barModel(mode)`; a `bar(mode, extras)` overload keeps the map and zoom buttons.
+  - Quit tile appended to upstream's new bottom-screen tab list (which now has a More tab); Start page falls back to upstream's choice when the saved tab is hidden.
+  - `SessionService`: upstream renamed `BL_WIDTH/HEIGHT` to `DD_`; `BL_MAP_BRIDGE` kept as is (the mod does not read it, so the DLL is unchanged).
+- Watch: upstream notes PixelCopy returns black every other refresh with black frame insertion on, and holds the picture around its own copies (`withPictureFrame`). Screen zoom does not do that yet; if the zoom flickers black with that setting on, use the same hold.
+- After John's Thor test passes, `dual-screen-map` moves to this merge.
