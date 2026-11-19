@@ -310,14 +310,13 @@ def stageGogNotices = tasks.register('stageGogNotices', Copy) {
 android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('gogNotices'))
 tasks.named('preBuild').configure { dependsOn(stageGogNotices) }
 
-if (!ciBuild) {
-    def stageLocalPacks = tasks.register('stageLocalPacks', Sync) {
-        from(layout.buildDirectory.dir('packs')) { include '*.tar.zst' }
-        into(layout.buildDirectory.dir('localPackAssets/packs'))
-    }
-    android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('localPackAssets'))
-    tasks.named('preBuild').configure { dependsOn(stageLocalPacks) }
+// The fork cannot publish packs to Droid-Deck/DroidDeck-Components, so its CI builds carry their own packs in the APK too.
+def stageLocalPacks = tasks.register('stageLocalPacks', Sync) {
+    from(layout.buildDirectory.dir('packs')) { include '*.tar.zst' }
+    into(layout.buildDirectory.dir('localPackAssets/packs'))
 }
+android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('localPackAssets'))
+tasks.named('preBuild').configure { dependsOn(stageLocalPacks) }
 
 def verifyRuntimeInputs = tasks.register('verifyRuntimeInputs', Exec) {
     mustRunAfter(stageSessionScripts, stageRuntimeAssets)
