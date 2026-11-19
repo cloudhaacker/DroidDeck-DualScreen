@@ -11,6 +11,7 @@ import android.view.Display
 
 object PerfMode {
     private const val TAG = "PerfMode"
+    const val BFI_MIN_REFRESH_HZ = 100f
 
     fun apply(a: Activity, fpsLimit: Int = 0, refreshLimit: Int = 0): String {
         val parts = ArrayList<String>(2)
@@ -21,7 +22,7 @@ object PerfMode {
                 val cur = display.mode
                 val cap = minOf(peakRefreshCap(a), refreshLimit.takeIf { it > 0 }?.toFloat() ?: Float.POSITIVE_INFINITY)
                 val best = selectMode(display.supportedModes, cur, fpsLimit, cap)
-                if (best != null && a.window.attributes.preferredDisplayModeId != best.modeId) {
+                if (best != null && needsChange(display.supportedModes, a.window.attributes.preferredDisplayModeId, best)) {
                     a.window.attributes = a.window.attributes.apply { preferredDisplayModeId = best.modeId }
                     "display ${cur.refreshRate.toInt()} → ${best.refreshRate.toInt()} Hz (mode ${best.modeId})"
                 } else "display ${cur.refreshRate.toInt()} Hz"
@@ -62,6 +63,11 @@ object PerfMode {
         return allowed.filter { cadenceFits(it.refreshRate, fpsLimit) }.maxByOrNull { it.refreshRate }
             ?: allowed.maxByOrNull { it.refreshRate }
             ?: sameSize.minByOrNull { it.refreshRate }
+    }
+
+    internal fun needsChange(modes: Array<Display.Mode>, preferredId: Int, best: Display.Mode): Boolean {
+        val preferred = modes.firstOrNull { preferredId != 0 && it.modeId == preferredId } ?: return true
+        return Math.abs(preferred.refreshRate - best.refreshRate) > 0.5f
     }
 
     fun cadenceFits(hz: Float, fpsLimit: Int): Boolean {

@@ -108,6 +108,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -509,16 +510,23 @@ fun <T> ChoiceRow(
     stacked: Boolean = false,
     onPick: (T) -> Unit,
 ) {
+    SettingsRow(label, hint, highlighted = host.open == key, hintLines = hintLines, stacked = stacked) {
+        ChoiceChip(host, key, label, options, selected, enabled, note, chipModifier, onPick)
+    }
+}
+
+@Composable
+internal fun <T> ChoiceChip(host: MenuHost, key: String, label: String, options: List<Pair<T, String>>, selected: T,
+    enabled: Boolean = true, note: String? = null, modifier: Modifier = Modifier, onPick: (T) -> Unit) {
     val open = host.open == key
-    SettingsRow(label, hint, highlighted = open, hintLines = hintLines, stacked = stacked) {
-        Box {
-            ValueChip(options.firstOrNull { it.first == selected }?.second ?: "-", open, enabled, modifier = chipModifier.testTag("setting-$key")) { host.open = if (open) null else key }
-            AnchoredMenu(open, onDismiss = { if (host.open == key) host.open = null }, title = label, note = note) { firstItemFocus ->
-                options.forEachIndexed { index, (value, text) ->
-                    MenuItem(text, checked = value == selected, focusRequester = if (index == 0) firstItemFocus else null) {
-                        onPick(value)
-                        host.open = null
-                    }
+    Box {
+        ValueChip(options.firstOrNull { it.first == selected }?.second ?: "-", open, enabled,
+            modifier = modifier.testTag("setting-$key")) { host.open = if (open) null else key }
+        AnchoredMenu(open, onDismiss = { if (host.open == key) host.open = null }, title = label, note = note) { firstItemFocus ->
+            options.forEachIndexed { index, (value, text) ->
+                MenuItem(text, checked = value == selected, focusRequester = if (index == 0) firstItemFocus else null) {
+                    onPick(value)
+                    host.open = null
                 }
             }
         }
@@ -598,7 +606,7 @@ fun SliderRow(
 @Composable
 fun ValueSlider(
     value: Int, range: IntRange, step: Int, enabled: Boolean, label: String?, format: (Int) -> String,
-    modifier: Modifier = Modifier, onChange: (Int) -> Unit,
+    modifier: Modifier = Modifier, track: Dp = 40.dp, onChange: (Int) -> Unit,
 ) {
     val compact = LocalCompactSettings.current
     val colors = MaterialTheme.colorScheme
@@ -621,7 +629,7 @@ fun ValueSlider(
         }
     }
     Column(
-        modifier = modifier.fillMaxWidth().heightIn(min = if (compact) 64.dp else 72.dp)
+        modifier = modifier.fillMaxWidth().heightIn(min = track + if (compact) 24.dp else 32.dp)
             .clip(shape).background(if (hot) pal.signal.copy(alpha = 0.12f) else Color.Transparent)
             .glideBorder(hot, shape, pal.signal)
             .alpha(if (enabled) 1f else 0.5f)
@@ -656,7 +664,7 @@ fun ValueSlider(
             Text(text, fontSize = if (compact) 12.sp else 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onBackground, maxLines = 1)
         }
         Canvas(
-            Modifier.fillMaxWidth().height(40.dp).onSizeChanged { trackPx = it.width }
+            Modifier.fillMaxWidth().height(track).onSizeChanged { trackPx = it.width }
                 .pointerInput(enabled, range, step, thumbInset) { if (enabled) detectTapGestures { fromX(it.x) } }
                 .pointerInput(enabled, range, step, thumbInset) {
                     if (enabled) detectHorizontalDragGestures { change, _ -> fromX(change.position.x); change.consume() }
@@ -714,6 +722,7 @@ fun SettingsPage(
     scroll: androidx.compose.foundation.ScrollState? = null,
     scrollContent: Boolean = true,
     compactLayout: Boolean = false,
+    showBack: Boolean = true,
     header: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
@@ -736,7 +745,7 @@ fun SettingsPage(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    BackLink(stringResource(R.string.mode_back), compact = true, onClick = onBack)
+                    if (showBack) BackLink(stringResource(R.string.mode_back), compact = true, onClick = onBack)
                     if (header != null) Box(Modifier.weight(1f)) { header() }
                 }
             }
@@ -746,7 +755,7 @@ fun SettingsPage(
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.padding(bottom = 6.dp),
                 ) {
-                    BackLink(stringResource(R.string.mode_back), compact = true, onClick = onBack)
+                    if (showBack) BackLink(stringResource(R.string.mode_back), compact = true, onClick = onBack)
                     Text(
                         title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = colors.onBackground,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
@@ -758,7 +767,7 @@ fun SettingsPage(
         } else {
             Rise(0) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    BackLink(stringResource(R.string.mode_back), compact = compactLayout, onClick = onBack)
+                    if (showBack) BackLink(stringResource(R.string.mode_back), compact = compactLayout, onClick = onBack)
                     if (eyebrow != null) {
                         Spacer(Modifier.width(10.dp))
                         Eyebrow(eyebrow)

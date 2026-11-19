@@ -5,7 +5,7 @@ import org.junit.Test
 
 class SessionDrawerPageTest {
     @Test fun singleScreenNavigationStartsWithControllerAndSkipsSecondScreen() {
-        val pages = sessionDrawerPages(false)
+        val pages = sessionDrawerPages(false, hasAgent = false)
         assertEquals(SessionDrawerPage.CONTROLLER, pages.first())
         assertFalse(SessionDrawerPage.SECOND_SCREEN in pages)
         assertEquals(SessionDrawerPage.DISPLAY, pages.step(SessionDrawerPage.CONTROLLER, 1))
@@ -14,16 +14,23 @@ class SessionDrawerPageTest {
     }
 
     @Test fun connectedSecondaryDisplayAddsItsPageAfterControllerAndPreservesOtherPages() {
-        val connected = sessionDrawerPages(true)
+        val connected = sessionDrawerPages(true, hasAgent = false)
         assertEquals(SessionDrawerPage.SECOND_SCREEN, connected.step(SessionDrawerPage.CONTROLLER, 1))
         assertEquals(SessionDrawerPage.DISPLAY, connected.step(SessionDrawerPage.SECOND_SCREEN, 1))
-        assertEquals(sessionDrawerPages(false), connected.filter { it != SessionDrawerPage.SECOND_SCREEN })
-        for (pages in listOf(connected, sessionDrawerPages(false))) {
+        assertEquals(sessionDrawerPages(false, hasAgent = false), connected.filter { it != SessionDrawerPage.SECOND_SCREEN })
+        for (pages in listOf(connected, sessionDrawerPages(false, hasAgent = false))) {
             assertEquals(SessionDrawerPage.HUD, pages.step(SessionDrawerPage.DISPLAY, 1))
             assertEquals(SessionDrawerPage.EFFECTS, pages.step(SessionDrawerPage.HUD, 1))
             assertEquals(SessionDrawerPage.VR, pages.step(SessionDrawerPage.EFFECTS, 1))
             assertEquals(SessionDrawerPage.GAMES, pages.step(SessionDrawerPage.VR, 1))
             assertEquals(SessionDrawerPage.SESSION, pages.step(SessionDrawerPage.GAMES, 1))
         }
+    }
+
+    @Test fun theAgentPageComesBeforeSessionOnlyWhenTheTabIsShown() {
+        val with = sessionDrawerPages(false, hasAgent = true)
+        assertEquals(SessionDrawerPage.AGENT, with.step(SessionDrawerPage.GAMES, 1))
+        assertEquals(SessionDrawerPage.SESSION, with.step(SessionDrawerPage.AGENT, 1))
+        assertFalse(SessionDrawerPage.AGENT in sessionDrawerPages(false, hasAgent = false))
     }
 }

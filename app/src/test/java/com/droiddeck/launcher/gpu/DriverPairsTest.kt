@@ -116,7 +116,7 @@ class DriverPairsTest {
     }
 
     @Test
-    fun adreno840GetsTheNewestOfficialDdTurnip() {
+    fun everyAdrenoGenerationGetsTheNewestOfficialDdTurnip() {
         fun bundle(tag: String) = TurnipReleases.Asset("DroidDeck", tag, "$tag.zip", "https://example/$tag", 6_000_000,
             false, "Android + Linux", "0".repeat(64), DriverPairs.ddTurnip(tag), bundle = true)
         val pairs = DriverPairs.from(TurnipReleases.Check(
@@ -126,12 +126,12 @@ class DriverPairsTest {
             emptyList(), emptyList(), 0L,
         ))
         assertEquals(DriverPairs.ddTurnip("DD-Turnip-v1.0.0"), DriverPairs.recommendedKey(gpu(840), pairs))
-        assertEquals("other 8xx keep WinNative", DriverPairs.WN_BALANCED, DriverPairs.recommendedKey(gpu(830), pairs))
-        assertEquals(DriverPairs.WN_BALANCED, DriverPairs.recommendedKey(gpu(825), pairs))
+        assertEquals(DriverPairs.ddTurnip("DD-Turnip-v1.0.0"), DriverPairs.recommendedKey(gpu(830), pairs))
+        assertEquals(DriverPairs.ddTurnip("DD-Turnip-v1.0.0"), DriverPairs.recommendedKey(gpu(825), pairs))
         assertEquals(DriverPairs.ddTurnip("DD-Turnip-v1.0.0"), DriverPairs.recommendedKey(gpu(740), pairs))
         assertEquals(DriverPairs.ddTurnip("DD-Turnip-v1.0.0"), DriverPairs.recommendedKey(gpu(722), pairs))
-        assertEquals(DriverPairs.BANNER_ONEUI, DriverPairs.recommendedKey(gpu(740, oneUi = true), pairs))
-        assertEquals(DriverPairs.BANNER, DriverPairs.recommendedKey(gpu(650), pairs))
+        assertEquals(DriverPairs.ddTurnip("DD-Turnip-v1.0.0"), DriverPairs.recommendedKey(gpu(740, oneUi = true), pairs))
+        assertEquals(DriverPairs.ddTurnip("DD-Turnip-v1.0.0"), DriverPairs.recommendedKey(gpu(650), pairs))
     }
 
     @Test
@@ -217,13 +217,43 @@ class DriverPairsTest {
         assertFalse(upstream.suits(GpuInfo("PowerVR", 0, Family.POWERVR, "", false)))
         assertEquals("RADV upstream · Samsung Xclipse", upstream.name)
         assertEquals(DriverPairs.NAD_RADV_XCLIPSE, DriverPairs.recommendedKey(xclipse, pairs))
-        for (name in listOf("Samsung Xclipse 530", "Samsung Xclipse 540", "Samsung Xclipse 920"))
+        assertEquals(DriverPairs.NAD_RADV_XCLIPSE, DriverPairs.recommendedKey(GpuInfo("Samsung Xclipse 920", 0, Family.POWERVR, "", false), pairs))
+        for (name in listOf("Samsung Xclipse 530"))
             assertEquals(DriverPairs.NAD_RADV_XCLIPSE, DriverPairs.recommendedKey(GpuInfo(name, 0, Family.POWERVR, "", false), pairs))
+        for (name in listOf("Samsung Xclipse 540", "Samsung Xclipse 950", "Samsung Xclipse 960", "Xclipse"))
+            assertEquals(DriverPairs.NAD_RADV_XCLIPSE_UPSTREAM, DriverPairs.recommendedKey(GpuInfo(name, 0, Family.POWERVR, "", false), pairs))
         assertTrue(DriverPairs.isNonAdreno("RADV-Xclipse-upstream"))
-        for (name in listOf("Samsung Xclipse 950", "Samsung Xclipse 960", "Xclipse")) {
-            val newer = GpuInfo(name, 0, Family.POWERVR, "", false)
-            assertEquals(DriverPairs.NAD_RADV_XCLIPSE_UPSTREAM, DriverPairs.recommendedKey(newer, pairs))
-            assertEquals(DriverPairs.NAD_RADV_XCLIPSE, DriverPairs.recommendedKey(newer, pairs.filter { it.key != DriverPairs.NAD_RADV_XCLIPSE_UPSTREAM }))
+        for (name in listOf("Samsung Xclipse 540", "Samsung Xclipse 950", "Samsung Xclipse 960", "Xclipse"))
+            assertNull(DriverPairs.recommendedKey(GpuInfo(name, 0, Family.POWERVR, "", false), pairs.filter { it.key != DriverPairs.NAD_RADV_XCLIPSE_UPSTREAM }))
+    }
+
+    @Test
+    fun autoEligibilityDoesNotDependOnPublishedXclipsePairs() {
+        fun mali(name: String) = GpuInfo(name, 0, GpuInfo.familyOf(false, 0, mali = name), "", false)
+        val xclipse540 = GpuInfo("Samsung Xclipse 540", 0, Family.POWERVR, "", false)
+        val xclipse920 = GpuInfo("Samsung Xclipse 920", 0, Family.POWERVR, "", false)
+        val upstream = TurnipReleases.Asset("Non-Adreno", "r1", "RADV-Xclipse-upstream.zip", "https://example/upstream", 9_000_000,
+            false, "label", "0".repeat(64), DriverPairs.nonAdreno("RADV-Xclipse-upstream"), bundle = true)
+        val pairs = DriverPairs.from(TurnipReleases.Check(listOf(upstream), emptyList(), emptyList(), 0L))
+        assertTrue(DriverPairs.autoEligible(xclipse540))
+        assertNull(DriverPairs.recommendedKey(xclipse540, emptyList()))
+        assertEquals(DriverPairs.NAD_RADV_XCLIPSE_UPSTREAM, DriverPairs.recommendedKey(xclipse540, pairs))
+        assertTrue(DriverPairs.autoEligible(xclipse920))
+        assertEquals(DriverPairs.NAD_RADV_XCLIPSE, DriverPairs.recommendedKey(xclipse920, emptyList()))
+        assertTrue(DriverPairs.autoEligible(gpu(740)))
+        assertTrue(DriverPairs.autoEligible(mali("Mali-G57")))
+        assertFalse(DriverPairs.autoEligible(mali("Mali-G1-Ultra")))
+        assertFalse(DriverPairs.autoEligible(GpuInfo("PowerVR", 0, Family.POWERVR, "", false)))
+    }
+
+    @Test
+    fun autoEligibilityMatchesRecommendedKeyForAdrenoAndMali() {
+        fun mali(name: String) = GpuInfo(name, 0, GpuInfo.familyOf(false, 0, mali = name), "", false)
+        for (gpu in listOf(gpu(710), gpu(740), mali("Mali-G57"), mali("Mali-G925-Immortalis MC12"))) {
+            assertEquals(
+                DriverPairs.recommendedKey(gpu, emptyList(), sdk = 34) != null,
+                DriverPairs.autoEligible(gpu, sdk = 34),
+            )
         }
     }
 

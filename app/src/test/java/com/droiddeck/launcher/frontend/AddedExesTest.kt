@@ -1,5 +1,6 @@
 package com.droiddeck.launcher.frontend
 
+import com.droiddeck.launcher.assumeFilePermissionsEnforced
 import android.os.Environment
 import com.droiddeck.launcher.session.SessionPrefs
 import java.io.File
@@ -59,6 +60,36 @@ class AddedExesTest {
         assertEquals(game.appId, (again as AddedGames.AddResult.Existing).game.appId)
         assertEquals(1, AddedExes.list(app).size)
         assertEquals(1, AddedGames.scan(app).size)
+    }
+
+    @Test fun aPickedSteamInstallSurvivesFullScansWithAndWithoutAManifest() {
+        for (manifestFirst in listOf(false, true)) {
+            val storage = tmp.newFolder("Library-$manifestFirst")
+            val pick = exe(File(storage, "steamapps/common/Example/Example.exe"))
+            val other = exe(File(storage, "steamapps/common/Other/Other.exe"))
+            val manifest = File(storage, "steamapps/appmanifest_123.acf")
+            exe(File(storage, "steamapps/common/Unselected/Unselected.exe"))
+            File(storage, "steamapps/appmanifest_456.acf").writeText("\"installdir\" \"Unselected\"")
+            SessionPrefs.setAddedGamesDirs(app, emptyList())
+            SessionPrefs.setGameStorage(app, storage.path, "Card")
+            if (manifestFirst) manifest.writeText("\"installdir\" \"Example\"")
+            SessionPrefs.setAddedGameLaunch(app, pick.parentFile!!.path, "--custom")
+            val game = result(AddedGames.addExe(app, pick))
+            assertEquals(pick.path, AddedExes.list(app).single { it.folder == game.folder.path }.exe)
+            assertEquals(game.appId, AddedGames.scan(app).single { it.folder == game.folder }.appId)
+            manifest.writeText("\"installdir\" \"Example\"")
+            val scanned = AddedGames.scan(app).single { it.folder == game.folder }
+            assertEquals(game.appId, scanned.appId)
+            assertEquals(pick.path, scanned.exe.path)
+            assertEquals("--custom", scanned.launchOptions)
+            assertTrue(AddedGames.scan(app).none { it.folder.name == "Unselected" })
+            assertTrue(AddedGames.scan(app).any { it.exe == other })
+            AddedGames.remove(app, game.folder)
+            assertTrue(AddedGames.scan(app).none { it.folder == game.folder })
+            assertTrue(AddedGames.addExe(app, pick) is AddedGames.AddResult.Switched)
+            assertEquals(game.appId, AddedGames.scan(app).single { it.folder == game.folder }.appId)
+            AddedExes.drop(app, game.folder.path)
+        }
     }
 
     @Test fun anotherExeInTheSameGameSwitchesItsExe() {
@@ -308,6 +339,7 @@ class AddedExesTest {
     }
 
     @Test fun anExeInAFolderTheAppCannotReadIsNotAdded() {
+        assumeFilePermissionsEnforced()
         noGamesFolders()
         val outside = exe(File(tmp.newFolder("elsewhere"), "Game/Game.exe"))
         outside.parentFile!!.setReadable(false)
