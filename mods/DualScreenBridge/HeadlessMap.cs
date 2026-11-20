@@ -39,7 +39,8 @@ namespace DualScreenBridge
         private string zoomSlot = "";
         // The last hero position and facing seen while in the field; a town reports its own small coordinates, which put the world map's cursor in the middle.
         private static Vector3 lastFieldPos, lastFieldRot;
-        private static bool haveFieldPos;
+        private static bool haveFieldPos, specificFailed;
+        private bool loggedSpot;
         private bool follow = true;
         private float viewX, viewY;
         private bool heroSeen;
@@ -235,6 +236,7 @@ namespace DualScreenBridge
             heroSeen = false;
             createdMarker = null;
             MarkerSwapped = false;
+            loggedSpot = false;
             readyAt = 0f;
             cameraChanges = 0;
             fixLogged = 0;
@@ -483,13 +485,36 @@ namespace DualScreenBridge
                         {
                             lastFieldPos = reported; lastFieldRot = (Vector3)info[1]; haveFieldPos = true;
                         }
-                        else if (haveFieldPos)
+                        // The game's own map swaps in the current town or dungeon's world spot here (GUIMapWorld.OnUpdate).
+                        bool placed = false;
+                        bool local = Convert.ToBoolean(GameApi.GetField(ownWorld, worldType, "isLocalMap"));
+                        if (!local && !specificFailed)
+                        {
+                            try
+                            {
+                                object[] spec = new object[] { info[0], GameApi.GetField(null, worldType, "interior") };
+                                GameApi.Invoke(null, GameApi.Find("guidmap"), "SetSpecificPlayerPos", spec);
+                                info[0] = spec[0];
+                                GameApi.SetField(null, worldType, "interior", spec[1]);
+                                placed = true;
+                                if (!loggedSpot)
+                                {
+                                    loggedSpot = true;
+                                    MelonLogger.Msg("world cursor: reported " + reported + " placed " + (Vector3)info[0] + " interior " + spec[1]);
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                specificFailed = true;
+                                MelonLogger.Warning("SetSpecificPlayerPos failed, using the last field position: " + (e.InnerException ?? e).Message);
+                            }
+                        }
+                        if (!local && !placed && !inFieldNow && haveFieldPos)
                         {
                             info[0] = lastFieldPos; info[1] = lastFieldRot;
                         }
                         GameApi.SetField(ownWorld, worldType, "playerPos", info[0]);
                         GameApi.SetField(ownWorld, worldType, "playerRot", info[1]);
-                        bool local = Convert.ToBoolean(GameApi.GetField(ownWorld, worldType, "isLocalMap"));
                         if (local) RefreshLocalMap(worldType, (Vector3)info[0]);
                         GameApi.Invoke(ownWorld, worldType, local ? "SetLocalCursor" : "SetWorldCursor");
                         GameObject icons = GameApi.GetField(ownWorld, worldType, local ? "bigMapIcon" : "smallMapIcon") as GameObject;
