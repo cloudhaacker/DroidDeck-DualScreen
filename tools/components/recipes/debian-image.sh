@@ -8,11 +8,17 @@ if gh release download "$DEBIAN_IMAGE_TAG" -R "$GITHUB_REPOSITORY" -p "$DEBIAN_I
   rm -f /tmp/debian-image.tar.zst
 else
   echo "::warning::the hosted Debian image could not be fetched; pulling from the registry instead"
-  for attempt in 1 2 3 4 5; do
-    docker pull "$image" && break
-    [ "$attempt" -lt 5 ] || { echo "::error::could not pull $image after $attempt attempts"; exit 1; }
-    echo "pull attempt $attempt failed (registry busy?); retrying in $((attempt * 30)) s"
-    sleep $((attempt * 30))
+  pulled=0
+  for attempt in 1 2 3; do
+    if docker pull "$image"; then pulled=1; break; fi
+    [ "$attempt" -lt 3 ] || break
+    echo "pull attempt $attempt failed (registry busy?); retrying in $((attempt * 20)) s"
+    sleep $((attempt * 20))
   done
+  if [ "$pulled" != 1 ]; then
+    mirror=mirror.gcr.io/library/debian:bullseye
+    echo "::warning::could not pull $image; trying $mirror"
+    docker pull "$mirror" && docker tag "$mirror" "$image" || { echo "::error::could not pull $image or $mirror"; exit 1; }
+  fi
 fi
 docker image ls "$image"

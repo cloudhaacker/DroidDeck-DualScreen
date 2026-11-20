@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">إبقاؤه مفتوحًا</string>
     <string name="steamvr_recovery_restarting">جارٍ إعادة ضبط الرسومات وإعادة فتح SteamVR…</string>
     <string name="steamvr_recovery_failed">تعذّر على DroidDeck إعادة التشغيل تلقائيًا. أغلق التطبيق تمامًا، ثم أعد فتحه.</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Upstream Test</string>
     <string-array name="loading_hints">
         <item>يقوم التشغيل الأول بتنزيل Steam. قد يستغرق ذلك بضع دقائق.</item>
         <item>تظهر وحدة التحكم لديك في Steam على أنها وحدة تحكم Steam Deck. بدّلها إلى Steam Controller أو DualShock 4 أو DualSense أو Xbox 360 من إعدادات الجلسة، ويُطبَّق ذلك في الجلسة التالية.</item>

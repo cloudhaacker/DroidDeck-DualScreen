@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">開いたままにする</string>
     <string name="steamvr_recovery_restarting">グラフィックをリセットして SteamVR を開き直しています…</string>
     <string name="steamvr_recovery_failed">DroidDeck を自動的に再起動できませんでした。アプリを完全に終了してから、もう一度開いてください。</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Upstream Test</string>
     <string-array name="loading_hints">
         <item>初回起動時にSteamをダウンロードします。数分かかる場合があります。</item>
         <item>コントローラーはSteamにSteam Deckコントローラーとして認識されます。セッション設定でSteam Controller、DualShock 4、DualSense、Xbox 360パッドに切り替えられます。変更は次のセッションから反映されます。</item>

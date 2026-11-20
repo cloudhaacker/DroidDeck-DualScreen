@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">Hold åben</string>
     <string name="steamvr_recovery_restarting">Nulstiller grafikken og åbner SteamVR igen…</string>
     <string name="steamvr_recovery_failed">DroidDeck kunne ikke genstarte automatisk. Luk appen helt, og åbn den så igen.</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Upstream Test</string>
     <string-array name="loading_hints">
         <item>Første kørsel downloader Steam. Det kan tage et par minutter.</item>
         <item>Din controller vises i Steam som en Steam Deck-controller. Skift den til Steam Controller, DualShock 4, DualSense eller Xbox 360 i sessionsindstillingerne. Det gælder fra næste session.</item>

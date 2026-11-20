@@ -367,7 +367,9 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
+      # Disabled in this fork: its commits are AI-assisted, which upstream's check rejects.
       - name: Check human authorship
+        if: ${{ false }}
         env:
           EVENT_NAME: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}

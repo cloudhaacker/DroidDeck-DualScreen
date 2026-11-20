@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">保持開啟</string>
     <string name="steamvr_recovery_restarting">正在重設圖形並重新開啟 SteamVR…</string>
     <string name="steamvr_recovery_failed">DroidDeck 無法自動重新啟動。請完全關閉應用程式，然後重新開啟。</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Upstream Test</string>
     <string-array name="loading_hints">
         <item>首次執行會下載 Steam，可能需要幾分鐘。</item>
         <item>你的控制器在 Steam 中會顯示為 Steam Deck 控制器。可在工作階段設定中切換為 Steam Controller、DualShock 4、DualSense 或 Xbox 360 控制器，下次工作階段生效。</item>

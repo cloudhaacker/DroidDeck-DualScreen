@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">Biarkan terbuka</string>
     <string name="steamvr_recovery_restarting">Mereset grafis dan membuka kembali SteamVR…</string>
     <string name="steamvr_recovery_failed">DroidDeck tidak bisa dimulai ulang secara otomatis. Tutup aplikasi sepenuhnya, lalu buka lagi.</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Upstream Test</string>
     <string-array name="loading_hints">
         <item>Saat pertama kali dijalankan, Steam akan diunduh. Ini mungkin memerlukan beberapa menit.</item>
         <item>Kontrolermu terlihat oleh Steam sebagai kontroler Steam Deck. Ubah menjadi pad Steam Controller, DualShock 4, DualSense, atau Xbox 360 di pengaturan sesi; perubahan berlaku pada sesi berikutnya.</item>

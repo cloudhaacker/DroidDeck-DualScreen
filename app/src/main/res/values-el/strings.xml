@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">Να μείνει ανοιχτό</string>
     <string name="steamvr_recovery_restarting">Επαναφορά γραφικών και εκ νέου άνοιγμα του SteamVR…</string>
     <string name="steamvr_recovery_failed">Το DroidDeck δεν μπόρεσε να κάνει αυτόματη επανεκκίνηση. Κλείστε εντελώς την εφαρμογή και ανοίξτε την ξανά.</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Upstream Test</string>
     <string-array name="loading_hints">
         <item>Η πρώτη εκτέλεση κατεβάζει το Steam. Μπορεί να διαρκέσει μερικά λεπτά.</item>
         <item>Το χειριστήριό σας εμφανίζεται στο Steam ως χειριστήριο Steam Deck. Αλλάξτε το σε Steam Controller, DualShock 4, DualSense ή Xbox 360 στις ρυθμίσεις συνεδρίας· εφαρμόζεται στην επόμενη συνεδρία.</item>

@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">Nyitva tartás</string>
     <string name="steamvr_recovery_restarting">A grafika visszaállítása és a SteamVR újranyitása…</string>
     <string name="steamvr_recovery_failed">A DroidDeck nem tudott automatikusan újraindulni. Zárja be teljesen az alkalmazást, majd nyissa meg újra.</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Upstream Test</string>
     <string-array name="loading_hints">
         <item>Az első indításkor letöltődik a Steam. Ez eltarthat néhány percig.</item>
         <item>A kontrollered Steam Deck kontrollerként jelenik meg a Steam számára. A munkamenet beállításaiban átállíthatod Steam Controller, DualShock 4, DualSense vagy Xbox 360 kontrollerre; a változás a következő munkamenettől él.</item>

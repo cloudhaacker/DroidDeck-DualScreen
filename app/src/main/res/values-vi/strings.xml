@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">Giữ mở</string>
     <string name="steamvr_recovery_restarting">Đang đặt lại đồ họa và mở lại SteamVR…</string>
     <string name="steamvr_recovery_failed">DroidDeck không thể tự khởi động lại. Hãy đóng hẳn ứng dụng rồi mở lại.</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Upstream Test</string>
     <string-array name="loading_hints">
         <item>Lần chạy đầu tiên sẽ tải Steam. Việc này có thể mất vài phút.</item>
         <item>Tay cầm của bạn hiện với Steam như tay cầm Steam Deck. Hãy chuyển sang tay cầm Steam Controller, DualShock 4, DualSense hoặc Xbox 360 trong cài đặt phiên; thay đổi áp dụng từ phiên sau.</item>
