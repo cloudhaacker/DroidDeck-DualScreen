@@ -526,6 +526,11 @@ because `monodis` crashes on Assembly-CSharp. Stop-hook messages about unpushed 
 - Limit: the set only fills when the world view has been opened in the field at least once since the game started; before that the town still shows everything. Log line `world map: N revealed icons remembered` marks progress (every 25).
 - Idea if that limit bothers him: also fill the set from the first world copy after loading a save in the field, or find the game's own reveal flags (SetMapDrawItem / ResetMapDrawItem on GUIMapWorld).
 
+## Upstream test build (branch upstream-test; app only)
+- Purpose: tell upstream regressions from fork ones. Plain upstream main (f180d98, newer than the 0.7.1 release) plus only the fork's build fixes (bundled packs in app/build.gradle, authorship check skipped, Debian image mirror). None of the dual-screen features.
+- Installs beside the fork as `com.droiddeck.upstreamtest`, named "DroidDeck Upstream Test". To refresh it later: reset the branch to the fork's synced main, re-apply that commit, run Build APK with `--ref upstream-test`.
+- First use (2026-11-20): volume keys in our build lag behind the indicator (the indicator reaches max or mute while the sound is unchanged; further presses then change it). Stock 0.7.1 works. Our volume and audio code equals upstream main; between 0.7.1 and main upstream switched to target SDK 34 (dc98b6b9, which also starts PulseAudio through the system linker), changed the volume broadcast receiver to RECEIVER_NOT_EXPORTED, and added DirectAudio host restarts (cdecd09e, d94906bd). If the test build shows the same lag, it is upstream's; bisect those commits.
+
 ## v0.6.52 (world map cursor in towns and dungeons from the game's own table; DLL only, built, untested)
 - Problem (John): he died in the Waterfall Cave and was revived in the Farebury church; the World view kept the hero at the cave until he walked out of town.
 - Cause: since v0.6.45 the World view in a town used the last field position we had seen (`lastFieldPos`). A warp (death, Zoom, Chimaera Wing) never passes through the field, so that memory went stale.
