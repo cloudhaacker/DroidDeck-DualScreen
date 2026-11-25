@@ -46,10 +46,12 @@ static void android_volume_set(pa_sink *sink) {
     level = ((uint64_t)requested * maximum + PA_VOLUME_NORM / 2) / PA_VOLUME_NORM;
     pa_cvolume_set(&sink->real_volume, sink->sample_spec.channels, (uint64_t)level * PA_VOLUME_NORM / maximum);
     pa_cvolume_reset(&sink->soft_volume, sink->sample_spec.channels);
+    pa_log_info("android volume: Linux side set the sink to %u/%u, asking Android for it", level, maximum);
     android_volume_request(sink, "volume", level);
 }
 
 static void android_volume_mute(pa_sink *sink) {
+    pa_log_info("android volume: Linux side set mute %d, asking Android for it", sink->muted ? 1 : 0);
     android_volume_request(sink, "mute", sink->muted ? 1 : 0);
 }
 
@@ -78,7 +80,10 @@ static void android_volume_refresh(pa_mainloop_api *api, pa_time_event *event, c
                 pa_sink_mute_changed(bridge->sink, !!muted);
                 changed = true;
             }
-            if (changed) bridge->active_ticks = ANDROID_VOLUME_ACTIVE_TICKS;
+            if (changed) {
+                bridge->active_ticks = ANDROID_VOLUME_ACTIVE_TICKS;
+                pa_log_info("android volume: Android is at %u/%u muted %u, sink follows", level, maximum, muted);
+            }
         }
     } else {
         bridge->active_ticks = ANDROID_VOLUME_ACTIVE_TICKS;

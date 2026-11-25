@@ -55,13 +55,20 @@ class DeviceControlsComponent(context: Context, root: File, private val activity
         }
     }
 
+    private var lastVolumeState: String? = null
+
     private fun publishVolume() {
         try {
             directory.mkdirs()
             val level = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
             val maximum = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
             val muted = audio.isStreamMute(AudioManager.STREAM_MUSIC)
-            write("volume.state", "$level $maximum ${if (muted) 1 else 0}\n")
+            val state = "$level $maximum ${if (muted) 1 else 0}"
+            if (state != lastVolumeState) {
+                lastVolumeState = state
+                Log.i(TAG, "volume: Android media volume $level/$maximum muted=$muted, published to Linux")
+            }
+            write("volume.state", "$state\n")
         } catch (e: Exception) {
             Log.w(TAG, "Could not publish Android volume", e)
         }
@@ -129,10 +136,13 @@ class DeviceControlsComponent(context: Context, root: File, private val activity
                 when (name) {
                     "brightness.request" -> text.toFloatOrNull()?.takeIf { it.isFinite() && it in 0f..1f }?.let(::brightness)
                     "volume.request" -> text.toIntOrNull()?.let {
+                        val before = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
                         audio.setStreamVolume(AudioManager.STREAM_MUSIC,
                             it.coerceIn(0, audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)), 0)
+                        Log.i(TAG, "volume: Linux asked for $it, Android media volume $before -> " + audio.getStreamVolume(AudioManager.STREAM_MUSIC))
                     }
                     "mute.request" -> if (text == "0" || text == "1") {
+                        Log.i(TAG, "volume: Linux asked for mute $text")
                         audio.adjustStreamVolume(AudioManager.STREAM_MUSIC,
                             if (text == "1") AudioManager.ADJUST_MUTE else AudioManager.ADJUST_UNMUTE, 0)
                     }

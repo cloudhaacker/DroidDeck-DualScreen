@@ -30,6 +30,7 @@ class AndroidVolumeTest(unittest.TestCase):
 #define pa_xstrdup strdup
 #define pa_xfree free
 #define pa_log_warn(...) ((void)0)
+#define pa_log_info(...) ((void)0)
 typedef struct { unsigned value; } pa_cvolume;
 typedef struct pa_time_event { int value; } pa_time_event;
 typedef struct pa_mainloop_api { void (*time_free)(pa_time_event*); } pa_mainloop_api;

@@ -3386,6 +3386,17 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
                     SessionState.firstFrameSeen && !SessionState.suspended && !ended &&
                     !pipUi && !drawerOpen && !pcKeyboardOpen && !achievementsOpen &&
                     !gestureSettingsOpen && !inputSettingsOpen && !appTextFocus && window.decorView.hasWindowFocus()
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    val am = getSystemService(android.media.AudioManager::class.java)
+                    Log.i(TAG, "volume key ${KeyEvent.keyCodeToString(event.keyCode)} repeat=${event.repeatCount} " +
+                        "handledBySteamPath=$steamVolume fixed=${am.isVolumeFixed} musicActive=${am.isMusicActive} " +
+                        "media volume before=${am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)}/" +
+                        "${am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)}")
+                    window.decorView.postDelayed({
+                        Log.i(TAG, "volume key result: media volume now ${am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)} " +
+                            "muted=${am.isStreamMute(android.media.AudioManager.STREAM_MUSIC)}")
+                    }, 150)
+                }
                 if (steamVolume) {
                     val audio = getSystemService(android.media.AudioManager::class.java)
                     if (com.droiddeck.launcher.input.SteamVolumeKeys.dispatch(event, !audio.isVolumeFixed) { direction ->
