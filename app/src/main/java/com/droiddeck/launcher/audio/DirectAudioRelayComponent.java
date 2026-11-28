@@ -22,6 +22,7 @@ public class DirectAudioRelayComponent extends SessionPart {
     private boolean micHot;
     private final File micControl;
     public java.util.function.Consumer<Boolean> onMicEnabled;
+    private File volumeControl;
 
     public DirectAudioRelayComponent(File socketPath, File micFifoPath) {
         this.socketPath = socketPath;
@@ -31,6 +32,10 @@ public class DirectAudioRelayComponent extends SessionPart {
 
     public void setLogFile(File file) {
         this.logFile = file;
+    }
+
+    public void setVolumeControl(File volumeState) {
+        this.volumeControl = volumeState;
     }
 
     @Override
@@ -67,6 +72,7 @@ public class DirectAudioRelayComponent extends SessionPart {
         StringBuilder command = new StringBuilder(binary.getAbsolutePath());
         command.append(" --socket ").append(socketPath.getAbsolutePath());
         command.append(" --log");
+        if (volumeControl != null) command.append(" --volume-control ").append(volumeControl.getAbsolutePath());
         final boolean withMic = micFifoPath != null && setMicEnabled(true);
         if (withMic) {
             command.append(" --mic-fifo ").append(micFifoPath.getAbsolutePath());

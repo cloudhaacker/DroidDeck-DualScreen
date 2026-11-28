@@ -55,6 +55,8 @@ static void pa_cvolume_reset(pa_cvolume *volume, unsigned channels) { volume->va
 static bool pa_cvolume_equal(const pa_cvolume *a, const pa_cvolume *b) { return a->value==b->value; }
 static void pa_sink_volume_changed(pa_sink *sink, const pa_cvolume *volume) { sink->real_volume=*volume; }
 static void pa_sink_mute_changed(pa_sink *sink, bool muted) { sink->muted=muted; }
+static unsigned pa_sw_volume_from_linear(double v) { return (unsigned)(v*PA_VOLUME_NORM+0.5); }
+static void pa_sink_set_soft_volume(pa_sink *sink, const pa_cvolume *volume) { sink->soft_volume=*volume; }
 static void pa_sink_set_set_volume_callback(pa_sink *sink, void (*callback)(pa_sink*)) { sink->set_volume=callback; }
 static void pa_sink_set_set_mute_callback(pa_sink *sink, void (*callback)(pa_sink*)) { sink->set_mute=callback; }
 static void pa_subscription_post(pa_core *core, int event, unsigned index) {}
@@ -90,6 +92,15 @@ int main(int argc, char **argv) {
     for (int i = 0; i < ANDROID_VOLUME_ACTIVE_TICKS + 1; i++)
         android_volume_refresh(&api,userdata.android_volume->timer,NULL,userdata.android_volume);
     assert(last_delay==100*PA_USEC_PER_MSEC);
+    state(argv[1],"4 15 0 0.25\n");
+    android_volume_refresh(&api,userdata.android_volume->timer,NULL,userdata.android_volume);
+    assert(sink.soft_volume.value==PA_VOLUME_NORM/4 && !sink.muted);
+    sink.real_volume.value=2*PA_VOLUME_NORM/3; sink.set_volume(&sink);
+    assert(sink.soft_volume.value==PA_VOLUME_NORM/4);
+    char *pending=pa_sprintf_malloc("%s/volume.request",argv[1]); unlink(pending); free(pending);
+    state(argv[1],"4 15 0\n");
+    android_volume_refresh(&api,userdata.android_volume->timer,NULL,userdata.android_volume);
+    assert(sink.soft_volume.value==PA_VOLUME_NORM);
     sink.real_volume.value=2*PA_VOLUME_NORM/3; sink.set_volume(&sink);
     char *request=pa_sprintf_malloc("%s/volume.request",argv[1]);
     FILE *f=fopen(request,"r"); unsigned level; assert(f && fscanf(f,"%u",&level)==1 && level==10); fclose(f); free(request);

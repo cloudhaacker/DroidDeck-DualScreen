@@ -219,6 +219,16 @@ object SessionPrefs {
 
     fun androidTextFieldKeyboard(context: Context): Boolean = prefs(context).getBoolean("androidTextFieldKeyboard", false)
 
+    // AYN's Thor firmware applies its per-screen volume, not the media volume, to an app with a window on the bottom screen.
+    val ownVolumeDefault: Boolean
+        get() = android.os.Build.MANUFACTURER.equals("AYN", ignoreCase = true) && android.os.Build.MODEL.contains("Thor", ignoreCase = true)
+
+    fun ownVolume(context: Context): Boolean = prefs(context).getBoolean("ownVolume", ownVolumeDefault)
+
+    fun setOwnVolume(context: Context, on: Boolean) {
+        prefs(context).edit().putBoolean("ownVolume", on).apply()
+    }
+
     fun setAndroidTextFieldKeyboard(context: Context, on: Boolean) {
         prefs(context).edit().putBoolean("androidTextFieldKeyboard", on).apply()
     }

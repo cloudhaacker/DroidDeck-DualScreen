@@ -57,16 +57,37 @@ class DeviceControlsComponent(context: Context, root: File, private val activity
 
     private var lastVolumeState: String? = null
 
+    private fun ownGain(level: Int, maximum: Int, muted: Boolean): Float? {
+        if (!com.droiddeck.launcher.session.SessionPrefs.ownVolume(context)) return null
+        if (muted || level <= 0) return 0f
+        val db = if (android.os.Build.VERSION.SDK_INT >= 28)
+            runCatching { audio.getStreamVolumeDb(AudioManager.STREAM_MUSIC, level, outputType()) }.getOrNull() else null
+        if (db != null && db.isFinite()) return Math.pow(10.0, db / 20.0).toFloat().coerceIn(0f, 1f)
+        val fraction = level.toFloat() / maximum
+        return fraction * fraction
+    }
+
+    private fun outputType(): Int {
+        val outputs = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).map { it.type }.toSet()
+        return listOf(
+            android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, android.media.AudioDeviceInfo.TYPE_BLE_HEADSET,
+            android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET, android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            android.media.AudioDeviceInfo.TYPE_USB_HEADSET,
+        ).firstOrNull { it in outputs } ?: android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+    }
+
     private fun publishVolume() {
         try {
             directory.mkdirs()
             val level = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
             val maximum = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
             val muted = audio.isStreamMute(AudioManager.STREAM_MUSIC)
-            val state = "$level $maximum ${if (muted) 1 else 0}"
+            val gain = ownGain(level, maximum, muted)
+            val state = "$level $maximum ${if (muted) 1 else 0}" + (gain?.let { " " + String.format(java.util.Locale.US, "%.6f", it) } ?: "")
             if (state != lastVolumeState) {
                 lastVolumeState = state
-                Log.i(TAG, "volume: Android media volume $level/$maximum muted=$muted, published to Linux")
+                Log.i(TAG, "volume: Android media volume $level/$maximum muted=$muted" +
+                    (gain?.let { ", DroidDeck applies gain $it itself" } ?: "") + ", published to Linux")
             }
             write("volume.state", "$state\n")
         } catch (e: Exception) {

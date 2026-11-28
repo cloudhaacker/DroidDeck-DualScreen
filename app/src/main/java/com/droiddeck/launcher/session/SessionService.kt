@@ -1157,6 +1157,7 @@ class SessionService : Service() {
                 }
             }
             relay.setLogFile(audioLog)
+            relay.setVolumeControl(java.io.File(com.droiddeck.launcher.runtime.DeviceControlsComponent.directory(LinuxRuntime.rootDir(this)), "volume.state"))
             relay.attach(this)
             components.add(relay)
         }

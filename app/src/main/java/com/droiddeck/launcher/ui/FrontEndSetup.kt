@@ -541,6 +541,13 @@ internal fun SetupPanel(
                                     }
                                     ToggleRow(host, "android-text-field-keyboard", stringResource(R.string.setup_android_text_field_keyboard),
                                         null, s.androidTextFieldKeyboard) { a.onAndroidTextFieldKeyboard(it) }
+                                    val ownVolumeContext = LocalContext.current
+                                    var ownVolume by remember { mutableStateOf(SessionPrefs.ownVolume(ownVolumeContext)) }
+                                    ToggleRow(host, "own-volume", stringResource(R.string.setup_own_volume),
+                                        stringResource(R.string.setup_own_volume_hint), ownVolume) {
+                                        SessionPrefs.setOwnVolume(ownVolumeContext, it)
+                                        ownVolume = it
+                                    }
                                 }
                             }
                         }

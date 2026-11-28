@@ -1,0 +1,97 @@
+--- a/directaudio-relay.c	2026-11-27 22:58:38.165321789 -0600
++++ b/directaudio-relay.c	2026-11-27 22:58:47.020014447 -0600
+@@ -72,6 +72,10 @@
+ static int g_verbose;
+ static const char *g_mic_control;
+ static int g_mic_enabled = 1;
++/* DroidDeck: --volume-control names Android's volume.state ("level max muted [gain]"). When the
++ * optional gain is there, Android is not applying the media volume to our streams, so we do. */
++static const char *g_volume_control;
++static int g_volume_micro = -1;   /* gain x 1e6, -1 when Android applies the volume */
+ static pthread_mutex_t g_mic_operations = PTHREAD_MUTEX_INITIALIZER;
+ 
+ static void rlog(const char *fmt, ...)
+@@ -174,6 +178,7 @@
+     int consuming;
+     int primed;
+     int starved;
++    float gain_now;
+ 
+     /* capture: this game's ring, fed by the shared microphone (see g_mic) */
+     int in_fd;
+@@ -291,6 +296,21 @@
+         __atomic_store_n(&r->ridx, ridx + n, __ATOMIC_RELEASE);
+     }
+     for (i = n * DA_RING_CHANNELS; i < frames * DA_RING_CHANNELS; i++) out[i] = 0.0f;
++    {
++        int micro = __atomic_load_n(&g_volume_micro, __ATOMIC_ACQUIRE);
++        float want = micro < 0 ? 1.0f : (float)micro / 1e6f, from = c->gain_now;
++
++        if (from != want || want != 1.0f)
++        {
++            uint32_t ch;
++            for (i = 0; i < n; i++)
++            {
++                float g = from + (want - from) * (float)(i + 1) / (float)frames;
++                for (ch = 0; ch < DA_RING_CHANNELS; ch++) out[(size_t)i * DA_RING_CHANNELS + ch] *= g;
++            }
++        }
++        c->gain_now = want;
++    }
+     __atomic_store_n(&c->consuming, 0, __ATOMIC_RELEASE);
+ 
+     __atomic_add_fetch(&r->wake, 1, __ATOMIC_RELEASE);
+@@ -882,6 +902,26 @@
+     REVENT("mic enabled=%d", enabled);
+ }
+ 
++static void volume_control_update(void)
++{
++    FILE *f;
++    unsigned level, maximum, muted;
++    float gain = -1.0f;
++    int micro, old;
++
++    if (!g_volume_control) return;
++    f = fopen(g_volume_control, "r");
++    if (f)
++    {
++        if (fscanf(f, "%u %u %u %f", &level, &maximum, &muted, &gain) != 4 || !(gain >= 0.0f)) gain = -1.0f;
++        else if (gain > 1.0f) gain = 1.0f;
++        fclose(f);
++    }
++    micro = gain < 0.0f ? -1 : (int)(gain * 1e6f + 0.5f);
++    old = __atomic_exchange_n(&g_volume_micro, micro, __ATOMIC_ACQ_REL);
++    if (old != micro) REVENT("volume gain %.4f%s", gain, gain < 0.0f ? " (Android applies the volume)" : "");
++}
++
+ static void *mic_reopen_thread(void *unused)
+ {
+     (void)unused;
+@@ -1383,6 +1423,7 @@
+ 
+         nanosleep(&iv, NULL);
+         mic_control_update();
++        volume_control_update();
+         if (++tick % 10) continue;
+ 
+         if (g_rt_path[0])
+@@ -1430,8 +1471,9 @@
+         if (!strcmp(argv[i], "--socket") && i + 1 < argc) path = argv[++i];
+         else if (!strcmp(argv[i], "--mic-fifo") && i + 1 < argc) fifo_path = argv[++i];
+         else if (!strcmp(argv[i], "--mic-control") && i + 1 < argc) g_mic_control = argv[++i];
++        else if (!strcmp(argv[i], "--volume-control") && i + 1 < argc) g_volume_control = argv[++i];
+         else if (!strcmp(argv[i], "--log")) g_verbose = 1;
+-        else { fprintf(stderr, "usage: directaudio-relay --socket <path> [--mic-fifo <path>] [--mic-control <path>] [--log]\n"); return 2; }
++        else { fprintf(stderr, "usage: directaudio-relay --socket <path> [--mic-fifo <path>] [--mic-control <path>] [--volume-control <path>] [--log]\n"); return 2; }
+     }
+     if (!path)
+     {
+@@ -1458,6 +1500,7 @@
+     if (listen(srv, 8) != 0) { REVENT("listen: %d", errno); return 1; }
+ 
+     mic_control_update();
++    volume_control_update();
+     REVENT("mic enabled=%d", __atomic_load_n(&g_mic_enabled, __ATOMIC_ACQUIRE));
+     if (pthread_create(&th, NULL, housekeeping_thread, NULL) == 0) pthread_detach(th);
+     if (fifo_path && fifo_setup(fifo_path) != 0)
