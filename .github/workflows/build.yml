@@ -687,6 +687,18 @@ jobs:
           mkdir -p app/build
           ./gradlew testReleaseUnitTest --console=plain --info --stacktrace -Drobolectric.logging=stderr -PndkVersion="$NDK_VERSION" 2>&1 | tee app/build/unit-tests.log
 
+      - name: List failed unit tests
+        if: always() && steps.unit-tests.outcome == 'failure'
+        run: |
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          for f in glob.glob('app/build/test-results/testReleaseUnitTest/*.xml'):
+              for case in ET.parse(f).getroot().iter('testcase'):
+                  for bad in list(case.findall('failure')) + list(case.findall('error')):
+                      print('FAILED', case.get('classname'), case.get('name'))
+                      print('\n'.join((bad.text or bad.get('message') or '').splitlines()[:15]))
+          PY
+
       - name: Upload unit test diagnostics
         id: unit-test-diagnostics
         if: always() && steps.unit-tests.outcome != 'skipped'
