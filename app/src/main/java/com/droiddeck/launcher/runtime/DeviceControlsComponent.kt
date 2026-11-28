@@ -62,9 +62,11 @@ class DeviceControlsComponent(context: Context, root: File, private val activity
         if (muted || level <= 0) return 0f
         val db = if (android.os.Build.VERSION.SDK_INT >= 28)
             runCatching { audio.getStreamVolumeDb(AudioManager.STREAM_MUSIC, level, outputType()) }.getOrNull() else null
-        if (db != null && db.isFinite()) return Math.pow(10.0, db / 20.0).toFloat().coerceIn(0f, 1f)
-        val fraction = level.toFloat() / maximum
-        return fraction * fraction
+        // Android's speaker curve drops below -35 dB on the lowest steps, which a handheld speaker cannot
+        // reproduce; keep each step at least on an even ramp from OWN_VOLUME_FLOOR_DB at step 1 to 0 dB.
+        val floorDb = if (maximum <= 1) 0f else OWN_VOLUME_FLOOR_DB * (maximum - level) / (maximum - 1)
+        val stepDb = if (db != null && db.isFinite()) maxOf(db, floorDb) else floorDb
+        return Math.pow(10.0, stepDb / 20.0).toFloat().coerceIn(0f, 1f)
     }
 
     private fun outputType(): Int {
@@ -223,6 +225,7 @@ class DeviceControlsComponent(context: Context, root: File, private val activity
 
     companion object {
         private const val TAG = "DeviceControls"
+        private const val OWN_VOLUME_FLOOR_DB = -30f
         private const val VOLUME_CHANGED_ACTION = "android.media.VOLUME_CHANGED_ACTION"
         private const val STREAM_MUTE_CHANGED_ACTION = "android.media.STREAM_MUTE_CHANGED_ACTION"
         private const val PERMISSION_CHANNEL = "brightness_permission"
