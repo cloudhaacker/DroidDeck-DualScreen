@@ -177,6 +177,7 @@ class SecondScreenPresentation(
         if (on == menuShown) return
         val content = menu ?: return
         menuShown = on
+        applyFocusability()
         if (on) {
             keyboardHost?.takeIf { it.shown }?.hide()
             keyboardShown.value = false
@@ -269,7 +270,15 @@ class SecondScreenPresentation(
         }
     }
 
+    // AYN's Thor firmware gives an app that holds focus on the bottom display the bottom-screen volume instead of media volume.
+    private fun applyFocusability() {
+        val passive = !menuShown && (currentMode == SecondScreenMode.GAME_MAP || currentMode == SecondScreenMode.SCREEN_ZOOM)
+        val flag = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        window?.let { if (passive) it.addFlags(flag) else it.clearFlags(flag) }
+    }
+
     private fun renderMode() {
+        applyFocusability()
         dropChat()
         fieldKeyboard = false
         keyboardHost?.hide()
